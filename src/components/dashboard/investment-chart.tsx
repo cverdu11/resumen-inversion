@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -263,6 +263,22 @@ function getTickDates(data: ChartDatum[]) {
   return ticks;
 }
 
+function useCompactChart() {
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsCompact(mediaQuery.matches);
+
+    update();
+    mediaQuery.addEventListener("change", update);
+
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  return isCompact;
+}
+
 function WeeklyRangeSummary({ weeks }: { weeks: WeeklyInvestmentItem[] }) {
   if (!weeks.length) {
     return null;
@@ -283,7 +299,7 @@ function WeeklyRangeSummary({ weeks }: { weeks: WeeklyInvestmentItem[] }) {
       : "bg-danger-soft text-danger";
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-background/35 px-3 py-2 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border border-border/60 bg-background/35 px-3 py-2 text-[0.72rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:gap-x-3 sm:text-xs">
       <span className="font-medium text-card-foreground/90">
         Semanal neto
       </span>
@@ -299,7 +315,7 @@ function WeeklyRangeSummary({ weeks }: { weeks: WeeklyInvestmentItem[] }) {
         {weeks.length} semanas
       </span>
       <span className="hidden h-3 w-px bg-border/70 sm:block" />
-      <span className="text-muted-foreground">
+      <span className="hidden text-muted-foreground sm:inline">
         {positiveWeeks} positivas / {negativeWeeks} negativas
       </span>
       <span className="hidden h-3 w-px bg-border/70 sm:block" />
@@ -315,6 +331,7 @@ function WeeklyRangeSummary({ weeks }: { weeks: WeeklyInvestmentItem[] }) {
 
 export function InvestmentChartCard() {
   const [range, setRange] = useState<RangeKey>("TODO");
+  const isCompactChart = useCompactChart();
   const visibleData = useMemo(
     () => filterDataByRange(monthlyInvestmentData, range),
     [range],
@@ -362,6 +379,14 @@ export function InvestmentChartCard() {
     ];
   }, [chartData, periodStartValue]);
   const ticks = useMemo(() => getTickDates(chartData), [chartData]);
+  const chartMargin = useMemo(
+    () =>
+      isCompactChart
+        ? { top: 34, right: 8, left: 0, bottom: 8 }
+        : { top: 40, right: 30, left: 0, bottom: 16 },
+    [isCompactChart],
+  );
+  const yAxisWidth = isCompactChart ? 68 : 76;
 
   const startDatum = chartData[0];
   const latestDatum = chartData.at(-1);
@@ -380,19 +405,20 @@ export function InvestmentChartCard() {
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
+      <CardHeader className="flex-col gap-3 p-4 sm:gap-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <CardTitle className="text-base font-semibold uppercase">
+          <CardTitle className="text-sm font-semibold uppercase sm:text-base">
             Evolución del valor de la inversión
           </CardTitle>
-          <CardDescription className="mt-2">
+          <CardDescription className="mt-1.5 sm:mt-2">
             Valor de la inversión (€)
           </CardDescription>
         </div>
-        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+        <div className="no-scrollbar -mx-1 w-full overflow-x-auto px-1 pb-1 lg:w-auto">
           <ToggleGroup
             type="single"
             value={range}
+            className="min-w-max"
             onValueChange={(value) => {
               if (value) {
                 setRange(value as RangeKey);
@@ -413,9 +439,9 @@ export function InvestmentChartCard() {
           </ToggleGroup>
         </div>
       </CardHeader>
-      <CardContent className="p-5 pt-0">
-        <div className="mb-5 flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-5 text-sm">
+      <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
+        <div className="mb-4 flex flex-col gap-3 sm:mb-5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:gap-5">
             <div className="flex items-center gap-2 text-card-foreground/88">
               <span
                 className={cn(
@@ -433,11 +459,11 @@ export function InvestmentChartCard() {
           <WeeklyRangeSummary weeks={visibleWeeklyData} />
         </div>
         <div>
-          <div className="h-[380px] min-w-0 sm:h-[430px]">
+          <div className="h-[320px] min-w-0 sm:h-[430px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={chartData}
-                margin={{ top: 40, right: 30, left: 0, bottom: 16 }}
+                margin={chartMargin}
               >
                 <defs>
                   <linearGradient id="investmentArea" x1="0" y1="0" x2="0" y2="1">
@@ -461,7 +487,7 @@ export function InvestmentChartCard() {
                   minTickGap={18}
                 />
                 <YAxis
-                  width={76}
+                  width={yAxisWidth}
                   domain={yDomain}
                   tickFormatter={(value) => formatCompactCurrency(Number(value))}
                   tickLine={false}
@@ -492,7 +518,7 @@ export function InvestmentChartCard() {
                         key={`cash-flow-${item.date}`}
                         x={item.date}
                         y={item.netCapitalContributed}
-                        r={5}
+                        r={isCompactChart ? 4 : 5}
                         fill={isContribution ? "#28e184" : "#ff5d5d"}
                         stroke={isContribution ? "#bbf7d0" : "#fecaca"}
                         strokeWidth={2}
@@ -508,7 +534,7 @@ export function InvestmentChartCard() {
                   dot={false}
                   isAnimationActive={false}
                   activeDot={{
-                    r: 6,
+                    r: isCompactChart ? 5 : 6,
                     stroke: "#ecfdf5",
                     strokeWidth: 2,
                     fill: valueStroke,
@@ -518,7 +544,7 @@ export function InvestmentChartCard() {
                   <ReferenceDot
                     x={startDatum.date}
                     y={startY}
-                    r={5}
+                    r={isCompactChart ? 4 : 5}
                     fill="#94a3b8"
                     stroke="#e2e8f0"
                     strokeWidth={2}
@@ -530,7 +556,7 @@ export function InvestmentChartCard() {
                           title={startTitle}
                           detail={startDetail}
                           tone="neutral"
-                          offsetX={12}
+                          offsetX={isCompactChart ? 8 : 12}
                         />
                       )}
                     />
@@ -540,7 +566,7 @@ export function InvestmentChartCard() {
                   <ReferenceDot
                     x={latestDatum.date}
                     y={latestDatum.finalValue}
-                    r={5}
+                    r={isCompactChart ? 4 : 5}
                     fill={valueStroke}
                     stroke={valueDotStroke}
                     strokeWidth={2}
@@ -558,7 +584,7 @@ export function InvestmentChartCard() {
                           )}
                           tone={latestAnnotationTone}
                           align="end"
-                          offsetX={-12}
+                          offsetX={isCompactChart ? -8 : -12}
                         />
                       )}
                     />

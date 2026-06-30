@@ -91,8 +91,8 @@ const kpis = [
 
 function ChartLoadingCard() {
   return (
-    <Card className="min-h-[536px]">
-      <CardHeader className="flex-row items-center justify-between gap-4 p-5">
+    <Card className="min-h-[456px] sm:min-h-[536px]">
+      <CardHeader className="flex-col items-start gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div>
           <CardTitle className="text-base font-semibold uppercase">
             Evolución del valor de la inversión
@@ -101,10 +101,10 @@ function ChartLoadingCard() {
             Valor de la inversión (€)
           </p>
         </div>
-        <div className="h-9 w-72 rounded-md border bg-secondary/50" />
+        <div className="h-9 w-full rounded-md border bg-secondary/50 sm:w-72" />
       </CardHeader>
-      <CardContent className="p-5 pt-0">
-        <div className="h-[430px] rounded-md border bg-muted/35" />
+      <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
+        <div className="h-[320px] rounded-md border bg-muted/35 sm:h-[430px]" />
       </CardContent>
     </Card>
   );
@@ -112,14 +112,14 @@ function ChartLoadingCard() {
 
 export function InvestmentDashboard() {
   return (
-    <main className="dashboard-grid min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-[1780px] flex-col gap-5">
+    <main className="dashboard-grid min-h-screen px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1780px] flex-col gap-4 sm:gap-5">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold leading-tight tracking-normal text-foreground sm:text-4xl">
+            <h1 className="text-2xl font-semibold leading-tight tracking-normal text-foreground sm:text-4xl">
               Resumen de Inversión
             </h1>
-            <p className="mt-2 text-base text-card-foreground/84 sm:text-lg">
+            <p className="mt-2 text-sm text-card-foreground/84 sm:text-lg">
               Visión general de rendimiento y evolución
             </p>
           </div>
@@ -140,7 +140,7 @@ export function InvestmentDashboard() {
           </Card>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <section className="grid gap-3 min-[380px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {kpis.map((kpi) => (
             <KpiCard key={kpi.label} {...kpi} />
           ))}

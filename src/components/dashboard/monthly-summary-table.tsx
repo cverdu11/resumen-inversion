@@ -64,7 +64,7 @@ function WeeklyBreakdown({
   const compoundReturn = compoundWeeklyReturn(weeks);
 
   return (
-    <div className="border-t bg-muted/18 px-5 py-4">
+    <div className="border-t bg-muted/18 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-card-foreground">
@@ -154,6 +154,114 @@ function WeeklyBreakdown({
   );
 }
 
+function MobileMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <span className="rounded-md border bg-background/28 px-3 py-2">
+      <span className="block text-[0.68rem] font-medium uppercase text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "mt-1 block text-sm font-semibold tabular-nums text-card-foreground/90",
+          tone,
+        )}
+      >
+        {value}
+      </span>
+    </span>
+  );
+}
+
+function MobileMonthlyRow({
+  item,
+  movements,
+  weeks,
+  isExpanded,
+  onToggle,
+}: {
+  item: MonthlyInvestmentItem;
+  movements: CapitalMovementItem[];
+  weeks: WeeklyInvestmentItem[];
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="border-b last:border-b-0">
+      <button
+        type="button"
+        className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/18"
+        aria-expanded={isExpanded}
+        aria-label={`Detalle semanal de ${item.month}`}
+        onClick={onToggle}
+      >
+        <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border bg-background/35 text-muted-foreground">
+          {isExpanded ? (
+            <ChevronDown className="size-4" />
+          ) : (
+            <ChevronRight className="size-4" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-card-foreground">
+                {item.month}
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Valor final {formatCurrency(item.finalValue)}
+              </span>
+            </span>
+            <span
+              className={cn(
+                "shrink-0 text-sm font-semibold tabular-nums",
+                valueTone(item.returnPct),
+              )}
+            >
+              {formatPercent(item.returnPct, { sign: true })}
+            </span>
+          </span>
+          <span className="mt-3 grid grid-cols-2 gap-2">
+            <MobileMetric
+              label="Inicial"
+              value={formatCurrency(item.initialValue)}
+            />
+            <MobileMetric
+              label="Ganancia"
+              value={formatCurrency(item.gain, { sign: true })}
+              tone={valueTone(item.gain)}
+            />
+            {item.contributions > 0 ? (
+              <MobileMetric
+                label="Aportaciones"
+                value={formatCurrency(item.contributions, { sign: true })}
+                tone="text-positive"
+              />
+            ) : null}
+            {item.withdrawals > 0 ? (
+              <MobileMetric
+                label="Retiradas"
+                value={formatCurrency(-item.withdrawals, { sign: true })}
+                tone="text-danger"
+              />
+            ) : null}
+          </span>
+        </span>
+      </button>
+      {isExpanded ? (
+        <WeeklyBreakdown month={item} movements={movements} weeks={weeks} />
+      ) : null}
+    </div>
+  );
+}
+
 export function MonthlySummaryTable() {
   const [page, setPage] = useState(1);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
@@ -200,7 +308,7 @@ export function MonthlySummaryTable() {
 
   return (
     <Card>
-      <CardHeader className="flex-row flex-wrap items-center justify-between gap-4 border-b p-5">
+      <CardHeader className="flex-col items-start gap-4 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex min-w-0 items-center gap-3">
           <CalendarDays className="size-5 shrink-0 text-card-foreground" />
           <div className="min-w-0">
@@ -223,7 +331,29 @@ export function MonthlySummaryTable() {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <Table containerClassName="max-h-[460px]">
+        <div className="md:hidden">
+          {visibleRows.map((item) => {
+            const isExpanded = expandedMonth === item.date;
+            const capitalMovements = getCapitalMovementsForMonth(item.date);
+            const weeklyRows = getWeeklyDataForMonth(item.date);
+
+            return (
+              <MobileMonthlyRow
+                key={item.date}
+                item={item}
+                movements={capitalMovements}
+                weeks={weeklyRows}
+                isExpanded={isExpanded}
+                onToggle={() =>
+                  setExpandedMonth((current) =>
+                    current === item.date ? null : item.date,
+                  )
+                }
+              />
+            );
+          })}
+        </div>
+        <Table containerClassName="hidden max-h-[460px] md:block">
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur">
             <TableRow className="hover:bg-transparent">
               <TableHead className="min-w-44">Mes</TableHead>
@@ -342,7 +472,7 @@ export function MonthlySummaryTable() {
             })}
           </TableBody>
         </Table>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-4 sm:px-5">
           <p className="text-sm text-muted-foreground sm:hidden">
             {monthlyInvestmentData.length} meses en total
           </p>

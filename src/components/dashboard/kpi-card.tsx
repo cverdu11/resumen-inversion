@@ -68,19 +68,19 @@ export function KpiCard({
         styles.card,
       )}
     >
-      <CardHeader className="flex-row items-start gap-4 p-4 pb-0">
+      <CardHeader className="flex-row items-start gap-3 p-3 pb-0 sm:gap-4 sm:p-4 sm:pb-0">
         <div
           className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-full ring-1",
+            "grid size-10 shrink-0 place-items-center rounded-full ring-1 sm:size-12",
             styles.iconWrap,
           )}
         >
-          <Icon className={cn("size-6", styles.icon)} strokeWidth={1.9} />
+          <Icon className={cn("size-5 sm:size-6", styles.icon)} strokeWidth={1.9} />
         </div>
         <div className="min-w-0 flex-1">
           <CardTitle
             className={cn(
-              "text-[0.69rem] font-semibold uppercase leading-4",
+              "text-[0.66rem] font-semibold uppercase leading-4 sm:text-[0.69rem]",
               styles.label,
             )}
           >
@@ -89,16 +89,18 @@ export function KpiCard({
           <CardDescription className="sr-only">{helper}</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-1 p-4 pt-3">
+      <CardContent className="flex flex-col gap-1 p-3 pt-2 sm:p-4 sm:pt-3">
         <div
           className={cn(
-            "text-2xl font-semibold leading-tight tracking-normal xl:text-[1.55rem]",
+            "text-[1.55rem] font-semibold leading-tight tracking-normal sm:text-2xl xl:text-[1.55rem]",
             styles.value,
           )}
         >
           {value}
         </div>
-        <p className="text-sm leading-5 text-card-foreground/82">{helper}</p>
+        <p className="text-xs leading-4 text-card-foreground/82 sm:text-sm sm:leading-5">
+          {helper}
+        </p>
       </CardContent>
     </Card>
   );
