@@ -1,18 +1,10 @@
 "use client";
 
-import type { FormEvent } from "react";
 import { X } from "lucide-react";
+import { useFormStatus } from "react-dom";
 
+import { createInvestor } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
-import type { InvestorStatus } from "@/lib/admin-mock-data";
-
-export type CreateInvestorInput = {
-  name: string;
-  surname: string;
-  startDate: string;
-  initialContribution: number;
-  status: InvestorStatus;
-};
 
 const inputClassName =
   "h-9 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
@@ -20,84 +12,25 @@ const inputClassName =
 const labelClassName =
   "text-xs font-semibold uppercase text-muted-foreground";
 
-function parseMoneyInput(value: string) {
-  const compactValue = value.replace(/[\u20ac\s]/g, "").trim();
+function CreateInvestorSubmitButton() {
+  const { pending } = useFormStatus();
 
-  if (!compactValue) {
-    return Number.NaN;
-  }
-
-  const hasComma = compactValue.includes(",");
-  const hasDot = compactValue.includes(".");
-
-  if (hasComma && hasDot) {
-    const decimalSeparator =
-      compactValue.lastIndexOf(",") > compactValue.lastIndexOf(".")
-        ? ","
-        : ".";
-    const thousandSeparator = decimalSeparator === "," ? "." : ",";
-
-    return Number(
-      compactValue
-        .split(thousandSeparator)
-        .join("")
-        .replace(decimalSeparator, "."),
-    );
-  }
-
-  if (hasComma || hasDot) {
-    const separator = hasComma ? "," : ".";
-    const parts = compactValue.split(separator);
-
-    if (parts.length === 2 && parts[1].length > 0 && parts[1].length <= 2) {
-      return Number(compactValue.replace(separator, "."));
-    }
-
-    return Number(parts.join(""));
-  }
-
-  return Number(compactValue);
+  return (
+    <Button type="submit" size="sm" disabled={pending}>
+      {pending ? "Creando..." : "Crear inversor"}
+    </Button>
+  );
 }
 
 export function CreateInvestorForm({
   onCancel,
-  onCreate,
 }: {
   onCancel: () => void;
-  onCreate: (input: CreateInvestorInput) => void;
 }) {
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const formData = new FormData(event.currentTarget);
-    const name = String(formData.get("name") ?? "").trim();
-    const surname = String(formData.get("surname") ?? "").trim();
-    const initialContribution = parseMoneyInput(
-      String(formData.get("initial_contribution") ?? ""),
-    );
-
-    if (
-      !name ||
-      !surname ||
-      !Number.isFinite(initialContribution) ||
-      initialContribution <= 0
-    ) {
-      return;
-    }
-
-    onCreate({
-      name,
-      surname,
-      startDate: String(formData.get("start_date") ?? ""),
-      initialContribution,
-      status: String(formData.get("status") ?? "active") as InvestorStatus,
-    });
-  }
-
   return (
     <form
+      action={createInvestor}
       className="border-t bg-background/18 px-4 py-4 sm:px-5"
-      onSubmit={handleSubmit}
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
@@ -179,9 +112,7 @@ export function CreateInvestorForm({
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button type="submit" size="sm">
-          Crear inversor
-        </Button>
+        <CreateInvestorSubmitButton />
       </div>
     </form>
   );

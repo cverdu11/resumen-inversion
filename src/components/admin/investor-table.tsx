@@ -4,10 +4,7 @@ import { useState } from "react";
 import { Eye, Plus, UsersRound } from "lucide-react";
 import Link from "next/link";
 
-import {
-  CreateInvestorForm,
-  type CreateInvestorInput,
-} from "@/components/admin/create-investor-form";
+import { CreateInvestorForm } from "@/components/admin/create-investor-form";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -153,20 +150,15 @@ function MobileInvestorCard({
 }
 
 export function InvestorTable({
+  investorError,
   investors,
-  onCreateInvestor,
   selectedInvestorId,
 }: {
+  investorError?: string;
   investors: MockInvestor[];
-  onCreateInvestor: (input: CreateInvestorInput) => void;
   selectedInvestorId: string;
 }) {
   const [isCreating, setIsCreating] = useState(false);
-
-  function handleCreateInvestor(input: CreateInvestorInput) {
-    onCreateInvestor(input);
-    setIsCreating(false);
-  }
 
   return (
     <Card className="overflow-hidden">
@@ -193,10 +185,12 @@ export function InvestorTable({
         </Button>
       </CardHeader>
       {isCreating ? (
-        <CreateInvestorForm
-          onCancel={() => setIsCreating(false)}
-          onCreate={handleCreateInvestor}
-        />
+        <CreateInvestorForm onCancel={() => setIsCreating(false)} />
+      ) : null}
+      {investorError ? (
+        <div className="border-b bg-danger-soft px-5 py-3 text-sm font-medium text-danger">
+          No se pudo crear el inversor. Revisa los datos e intentalo de nuevo.
+        </div>
       ) : null}
       <CardContent className="p-0">
         <div className="lg:hidden">

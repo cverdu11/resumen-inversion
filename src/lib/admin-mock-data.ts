@@ -649,8 +649,12 @@ export function getAdminOverview(investors = mockInvestors) {
     0,
   );
   const averageProfitability =
-    investors.reduce((total, investor) => total + investor.profitabilityPct, 0) /
-    investors.length;
+    investors.length > 0
+      ? investors.reduce(
+          (total, investor) => total + investor.profitabilityPct,
+          0,
+        ) / investors.length
+      : 0;
   const currentWeekProfitability =
     weeklyProfitability.find((item) => item.status === "draft")?.returnPct ?? 0;
 

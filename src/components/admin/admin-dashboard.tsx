@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -12,7 +12,6 @@ import {
   UsersRound,
 } from "lucide-react";
 
-import type { CreateInvestorInput } from "@/components/admin/create-investor-form";
 import { InvestorDetailPreview } from "@/components/admin/investor-detail-preview";
 import { InvestorTable } from "@/components/admin/investor-table";
 import { PasswordChangeForm } from "@/components/admin/password-change-form";
@@ -26,212 +25,31 @@ import {
   type MockInvestor,
   weeklyProfitability,
 } from "@/lib/admin-mock-data";
-import {
-  formatMonthName,
-  formatPercent,
-  formatWholeCurrency,
-} from "@/lib/formatters";
+import { formatPercent, formatWholeCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 type AdminTab = "panel" | "rentabilidad";
 
-type StoredInvestorsPayload = {
-  version: 1;
-  investors: MockInvestor[];
-};
-
-const localInvestorsStorageKey = "resumen-inversion-admin-investors-v1";
-const localInvestorsChangedEvent = "resumen-inversion-admin-investors-changed";
-const emptyStoredInvestors: MockInvestor[] = [];
-
-let storedInvestorsRawSnapshot: string | null = null;
-let storedInvestorsSnapshot: MockInvestor[] = emptyStoredInvestors;
-
-function isStoredInvestor(value: unknown): value is MockInvestor {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const investor = value as Partial<MockInvestor>;
-
-  return Boolean(
-    investor.id &&
-      investor.name &&
-      investor.surname &&
-      investor.slug &&
-      investor.startDate &&
-      typeof investor.initialContribution === "number" &&
-      typeof investor.currentBalance === "number",
-  );
-}
-
-function readStoredInvestors() {
-  if (typeof window === "undefined") {
-    return emptyStoredInvestors;
-  }
-
-  try {
-    const rawValue = window.localStorage.getItem(localInvestorsStorageKey);
-
-    if (rawValue === storedInvestorsRawSnapshot) {
-      return storedInvestorsSnapshot;
-    }
-
-    if (!rawValue) {
-      storedInvestorsRawSnapshot = rawValue;
-      storedInvestorsSnapshot = emptyStoredInvestors;
-
-      return storedInvestorsSnapshot;
-    }
-
-    const payload = JSON.parse(rawValue) as Partial<StoredInvestorsPayload>;
-
-    if (payload.version !== 1 || !Array.isArray(payload.investors)) {
-      storedInvestorsRawSnapshot = rawValue;
-      storedInvestorsSnapshot = emptyStoredInvestors;
-
-      return storedInvestorsSnapshot;
-    }
-
-    storedInvestorsRawSnapshot = rawValue;
-    storedInvestorsSnapshot = payload.investors.filter(isStoredInvestor);
-
-    return storedInvestorsSnapshot;
-  } catch {
-    storedInvestorsRawSnapshot = null;
-    storedInvestorsSnapshot = emptyStoredInvestors;
-
-    return storedInvestorsSnapshot;
-  }
-}
-
-function persistStoredInvestors(investors: MockInvestor[]) {
-  const payload: StoredInvestorsPayload = {
-    version: 1,
-    investors,
-  };
-
-  const serializedPayload = JSON.stringify(payload);
-
-  window.localStorage.setItem(localInvestorsStorageKey, serializedPayload);
-  storedInvestorsRawSnapshot = serializedPayload;
-  storedInvestorsSnapshot = investors;
-  window.dispatchEvent(new Event(localInvestorsChangedEvent));
-}
-
-function subscribeStoredInvestors(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-  window.addEventListener(localInvestorsChangedEvent, onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener(localInvestorsChangedEvent, onStoreChange);
-  };
-}
-
-function normalizeSlug(value: string) {
-  return (
-    value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "inversor"
-  );
-}
-
-function getUniqueSlug(baseSlug: string, investors: MockInvestor[]) {
-  const usedSlugs = new Set(investors.map((investor) => investor.slug));
-  let slug = baseSlug;
-  let suffix = 2;
-
-  while (usedSlugs.has(slug)) {
-    slug = `${baseSlug}-${suffix}`;
-    suffix += 1;
-  }
-
-  return slug;
-}
-
-function formatTimelineDate(date: string) {
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${date}T12:00:00`));
-}
-
-function buildCreatedInvestor(
-  input: CreateInvestorInput,
-  investors: MockInvestor[],
-): MockInvestor {
-  const baseSlug = normalizeSlug(`${input.name}-${input.surname}`);
-  const slug = getUniqueSlug(baseSlug, investors);
-
-  return {
-    id: `inv-${slug}`,
-    name: input.name,
-    surname: input.surname,
-    slug,
-    startDate: input.startDate,
-    initialContribution: input.initialContribution,
-    additionalContributions: 0,
-    withdrawals: 0,
-    currentBalance: input.initialContribution,
-    profit: 0,
-    profitabilityPct: 0,
-    status: input.status,
-    movements: [
-      {
-        id: `mov-${slug}-initial`,
-        date: input.startDate,
-        type: "contribution",
-        amount: input.initialContribution,
-        note: "Aportación inicial",
-      },
-    ],
-    timeline: [
-      {
-        id: `tl-${slug}-initial`,
-        date: formatTimelineDate(input.startDate),
-        label: "Alta de inversor",
-        detail: "Capital inicial registrado",
-      },
-    ],
-    monthlySummary: [
-      {
-        id: `${slug}-initial-month`,
-        month: formatMonthName(input.startDate),
-        balance: input.initialContribution,
-        profit: 0,
-        returnPct: 0,
-      },
-    ],
-  };
-}
-
 export function AdminDashboard({
   activeTab,
+  databaseInvestors,
+  investorError,
   passwordError,
   passwordStatus,
   selectedInvestorSlug,
   userEmail,
 }: {
   activeTab: AdminTab;
+  databaseInvestors: MockInvestor[];
+  investorError?: string;
   passwordError?: string;
   passwordStatus?: string;
   selectedInvestorSlug?: string;
   userEmail?: string;
 }) {
-  const createdInvestors = useSyncExternalStore(
-    subscribeStoredInvestors,
-    readStoredInvestors,
-    () => emptyStoredInvestors,
-  );
   const investors = useMemo(
-    () => [...mockInvestors, ...createdInvestors],
-    [createdInvestors],
+    () => (databaseInvestors.length > 0 ? databaseInvestors : mockInvestors),
+    [databaseInvestors],
   );
   const overview = useMemo(() => getAdminOverview(investors), [investors]);
   const selectedInvestor =
@@ -241,14 +59,6 @@ export function AdminDashboard({
   const selectedSlug =
     selectedInvestor?.slug ?? selectedInvestorSlug ?? investors[0]?.slug;
   const currentAdminPath = `/admin?tab=${activeTab}&investor=${selectedSlug}`;
-
-  function handleCreateInvestor(input: CreateInvestorInput) {
-    const newInvestor = buildCreatedInvestor(input, investors);
-    const nextInvestors = [...createdInvestors, newInvestor];
-
-    persistStoredInvestors(nextInvestors);
-    window.location.assign(`/admin?tab=panel&investor=${newInvestor.slug}`);
-  }
 
   const kpis = [
     {
@@ -391,8 +201,8 @@ export function AdminDashboard({
 
             <section className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_460px]">
               <InvestorTable
+                investorError={investorError}
                 investors={investors}
-                onCreateInvestor={handleCreateInvestor}
                 selectedInvestorId={selectedInvestorId}
               />
               {selectedInvestor ? (
