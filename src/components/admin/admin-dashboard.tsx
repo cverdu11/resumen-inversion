@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -12,8 +12,10 @@ import {
   UsersRound,
 } from "lucide-react";
 
+import type { CreateInvestorInput } from "@/components/admin/create-investor-form";
 import { InvestorDetailPreview } from "@/components/admin/investor-detail-preview";
 import { InvestorTable } from "@/components/admin/investor-table";
+import { PasswordChangeForm } from "@/components/admin/password-change-form";
 import { WeeklyProfitabilityPanel } from "@/components/admin/weekly-profitability-panel";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { Button } from "@/components/ui/button";
@@ -21,28 +23,232 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   getAdminOverview,
   mockInvestors,
+  type MockInvestor,
   weeklyProfitability,
 } from "@/lib/admin-mock-data";
-import { formatPercent, formatWholeCurrency } from "@/lib/formatters";
+import {
+  formatMonthName,
+  formatPercent,
+  formatWholeCurrency,
+} from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 type AdminTab = "panel" | "rentabilidad";
 
+type StoredInvestorsPayload = {
+  version: 1;
+  investors: MockInvestor[];
+};
+
+const localInvestorsStorageKey = "resumen-inversion-admin-investors-v1";
+const localInvestorsChangedEvent = "resumen-inversion-admin-investors-changed";
+const emptyStoredInvestors: MockInvestor[] = [];
+
+let storedInvestorsRawSnapshot: string | null = null;
+let storedInvestorsSnapshot: MockInvestor[] = emptyStoredInvestors;
+
+function isStoredInvestor(value: unknown): value is MockInvestor {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const investor = value as Partial<MockInvestor>;
+
+  return Boolean(
+    investor.id &&
+      investor.name &&
+      investor.surname &&
+      investor.slug &&
+      investor.startDate &&
+      typeof investor.initialContribution === "number" &&
+      typeof investor.currentBalance === "number",
+  );
+}
+
+function readStoredInvestors() {
+  if (typeof window === "undefined") {
+    return emptyStoredInvestors;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(localInvestorsStorageKey);
+
+    if (rawValue === storedInvestorsRawSnapshot) {
+      return storedInvestorsSnapshot;
+    }
+
+    if (!rawValue) {
+      storedInvestorsRawSnapshot = rawValue;
+      storedInvestorsSnapshot = emptyStoredInvestors;
+
+      return storedInvestorsSnapshot;
+    }
+
+    const payload = JSON.parse(rawValue) as Partial<StoredInvestorsPayload>;
+
+    if (payload.version !== 1 || !Array.isArray(payload.investors)) {
+      storedInvestorsRawSnapshot = rawValue;
+      storedInvestorsSnapshot = emptyStoredInvestors;
+
+      return storedInvestorsSnapshot;
+    }
+
+    storedInvestorsRawSnapshot = rawValue;
+    storedInvestorsSnapshot = payload.investors.filter(isStoredInvestor);
+
+    return storedInvestorsSnapshot;
+  } catch {
+    storedInvestorsRawSnapshot = null;
+    storedInvestorsSnapshot = emptyStoredInvestors;
+
+    return storedInvestorsSnapshot;
+  }
+}
+
+function persistStoredInvestors(investors: MockInvestor[]) {
+  const payload: StoredInvestorsPayload = {
+    version: 1,
+    investors,
+  };
+
+  const serializedPayload = JSON.stringify(payload);
+
+  window.localStorage.setItem(localInvestorsStorageKey, serializedPayload);
+  storedInvestorsRawSnapshot = serializedPayload;
+  storedInvestorsSnapshot = investors;
+  window.dispatchEvent(new Event(localInvestorsChangedEvent));
+}
+
+function subscribeStoredInvestors(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(localInvestorsChangedEvent, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(localInvestorsChangedEvent, onStoreChange);
+  };
+}
+
+function normalizeSlug(value: string) {
+  return (
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "inversor"
+  );
+}
+
+function getUniqueSlug(baseSlug: string, investors: MockInvestor[]) {
+  const usedSlugs = new Set(investors.map((investor) => investor.slug));
+  let slug = baseSlug;
+  let suffix = 2;
+
+  while (usedSlugs.has(slug)) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
+}
+
+function formatTimelineDate(date: string) {
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(`${date}T12:00:00`));
+}
+
+function buildCreatedInvestor(
+  input: CreateInvestorInput,
+  investors: MockInvestor[],
+): MockInvestor {
+  const baseSlug = normalizeSlug(`${input.name}-${input.surname}`);
+  const slug = getUniqueSlug(baseSlug, investors);
+
+  return {
+    id: `inv-${slug}`,
+    name: input.name,
+    surname: input.surname,
+    slug,
+    startDate: input.startDate,
+    initialContribution: input.initialContribution,
+    additionalContributions: 0,
+    withdrawals: 0,
+    currentBalance: input.initialContribution,
+    profit: 0,
+    profitabilityPct: 0,
+    status: input.status,
+    movements: [
+      {
+        id: `mov-${slug}-initial`,
+        date: input.startDate,
+        type: "contribution",
+        amount: input.initialContribution,
+        note: "Aportación inicial",
+      },
+    ],
+    timeline: [
+      {
+        id: `tl-${slug}-initial`,
+        date: formatTimelineDate(input.startDate),
+        label: "Alta de inversor",
+        detail: "Capital inicial registrado",
+      },
+    ],
+    monthlySummary: [
+      {
+        id: `${slug}-initial-month`,
+        month: formatMonthName(input.startDate),
+        balance: input.initialContribution,
+        profit: 0,
+        returnPct: 0,
+      },
+    ],
+  };
+}
+
 export function AdminDashboard({
   activeTab,
+  passwordError,
+  passwordStatus,
   selectedInvestorSlug,
   userEmail,
 }: {
   activeTab: AdminTab;
+  passwordError?: string;
+  passwordStatus?: string;
   selectedInvestorSlug?: string;
   userEmail?: string;
 }) {
-  const overview = useMemo(() => getAdminOverview(mockInvestors), []);
+  const createdInvestors = useSyncExternalStore(
+    subscribeStoredInvestors,
+    readStoredInvestors,
+    () => emptyStoredInvestors,
+  );
+  const investors = useMemo(
+    () => [...mockInvestors, ...createdInvestors],
+    [createdInvestors],
+  );
+  const overview = useMemo(() => getAdminOverview(investors), [investors]);
   const selectedInvestor =
-    mockInvestors.find((investor) => investor.slug === selectedInvestorSlug) ??
-    mockInvestors[0];
+    investors.find((investor) => investor.slug === selectedInvestorSlug) ??
+    investors[0];
   const selectedInvestorId = selectedInvestor?.id ?? "";
-  const selectedSlug = selectedInvestor?.slug ?? mockInvestors[0]?.slug;
+  const selectedSlug =
+    selectedInvestor?.slug ?? selectedInvestorSlug ?? investors[0]?.slug;
+  const currentAdminPath = `/admin?tab=${activeTab}&investor=${selectedSlug}`;
+
+  function handleCreateInvestor(input: CreateInvestorInput) {
+    const newInvestor = buildCreatedInvestor(input, investors);
+    const nextInvestors = [...createdInvestors, newInvestor];
+
+    persistStoredInvestors(nextInvestors);
+    window.location.assign(`/admin?tab=panel&investor=${newInvestor.slug}`);
+  }
 
   const kpis = [
     {
@@ -118,24 +324,31 @@ export function AdminDashboard({
               Gestión de inversores y rentabilidad semanal
             </p>
           </div>
-          <Card className="w-full max-w-sm border-border lg:w-auto">
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="grid size-10 shrink-0 place-items-center rounded-md border bg-muted/70 text-muted-foreground">
-                <CalendarDays className="size-5" strokeWidth={1.9} />
+          <Card className="w-full max-w-md border-border lg:w-auto">
+            <CardContent className="flex flex-col gap-3 p-4">
+              <div className="flex items-center gap-4">
+                <div className="grid size-5 shrink-0 place-items-center text-muted-foreground">
+                  <CalendarDays className="size-5" strokeWidth={1.9} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-muted-foreground">
+                    Sesión trader
+                  </p>
+                  <p className="mt-1 truncate text-sm font-medium text-card-foreground">
+                    {userEmail ?? "Usuario autenticado"}
+                  </p>
+                </div>
+                <form action="/auth/signout" method="post">
+                  <Button variant="ghost" size="sm" type="submit">
+                    Salir
+                  </Button>
+                </form>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-muted-foreground">
-                  Sesión trader
-                </p>
-                <p className="mt-1 truncate text-sm font-medium text-card-foreground">
-                  {userEmail ?? "Usuario autenticado"}
-                </p>
-              </div>
-              <form action="/auth/signout" method="post">
-                <Button variant="outline" size="sm" type="submit">
-                  Salir
-                </Button>
-              </form>
+              <PasswordChangeForm
+                next={currentAdminPath}
+                passwordError={passwordError}
+                passwordStatus={passwordStatus}
+              />
             </CardContent>
           </Card>
         </header>
@@ -178,7 +391,8 @@ export function AdminDashboard({
 
             <section className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_460px]">
               <InvestorTable
-                investors={mockInvestors}
+                investors={investors}
+                onCreateInvestor={handleCreateInvestor}
                 selectedInvestorId={selectedInvestorId}
               />
               {selectedInvestor ? (

@@ -1,8 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Eye, Plus, UsersRound } from "lucide-react";
 import Link from "next/link";
 
+import {
+  CreateInvestorForm,
+  type CreateInvestorInput,
+} from "@/components/admin/create-investor-form";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -149,11 +154,20 @@ function MobileInvestorCard({
 
 export function InvestorTable({
   investors,
+  onCreateInvestor,
   selectedInvestorId,
 }: {
   investors: MockInvestor[];
+  onCreateInvestor: (input: CreateInvestorInput) => void;
   selectedInvestorId: string;
 }) {
+  const [isCreating, setIsCreating] = useState(false);
+
+  function handleCreateInvestor(input: CreateInvestorInput) {
+    onCreateInvestor(input);
+    setIsCreating(false);
+  }
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="flex-col items-start gap-4 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
@@ -168,11 +182,22 @@ export function InvestorTable({
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm">
+        <Button
+          variant={isCreating ? "secondary" : "outline"}
+          size="sm"
+          aria-expanded={isCreating}
+          onClick={() => setIsCreating((current) => !current)}
+        >
           <Plus data-icon="inline-start" />
           Nuevo inversor
         </Button>
       </CardHeader>
+      {isCreating ? (
+        <CreateInvestorForm
+          onCancel={() => setIsCreating(false)}
+          onCreate={handleCreateInvestor}
+        />
+      ) : null}
       <CardContent className="p-0">
         <div className="lg:hidden">
           {investors.map((investor) => (

@@ -12,6 +12,8 @@ export const metadata: Metadata = {
 type AdminPageProps = {
   searchParams?: Promise<{
     investor?: string;
+    password_error?: string;
+    password_status?: string;
     tab?: string;
   }>;
 };
@@ -37,6 +39,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   return (
     <AdminDashboard
       activeTab={params?.tab === "rentabilidad" ? "rentabilidad" : "panel"}
+      passwordError={params?.password_error}
+      passwordStatus={params?.password_status}
       selectedInvestorSlug={params?.investor}
       userEmail={user.email}
     />
