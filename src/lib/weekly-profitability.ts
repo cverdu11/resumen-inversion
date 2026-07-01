@@ -109,7 +109,8 @@ function buildWeekItem(
   const start = parseLocalDate(weekStart);
   const endDate = savedRow?.week_end ?? toDateInputValue(addDays(start, 4));
   const isSaved = Boolean(savedRow);
-  const status = getGeneratedStatus(weekStart, currentWeekStart, isSaved);
+  const status =
+    savedRow?.status ?? getGeneratedStatus(weekStart, currentWeekStart, isSaved);
 
   return {
     id: savedRow ? `weekly-db-${savedRow.id}` : `weekly-${weekStart}`,

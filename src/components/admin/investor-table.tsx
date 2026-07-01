@@ -1,7 +1,15 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Eye, Pencil, Plus, Save, Trash2, UsersRound } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Pencil,
+  Plus,
+  Save,
+  Trash2,
+  UsersRound,
+} from "lucide-react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 
@@ -225,7 +233,7 @@ function MobileInvestorCard({
             <Pencil data-icon="inline-start" />
           </Button>
           <Link
-            href={`/admin?tab=panel&investor=${investor.slug}`}
+            href={isSelected ? "/admin" : `/admin?investor=${investor.slug}`}
             className="min-w-0"
             aria-current={isSelected ? "true" : undefined}
           >
@@ -429,15 +437,29 @@ export function InvestorTable({
                           variant={isSelected ? "default" : "ghost"}
                           size="icon"
                           className="size-8 rounded-sm"
-                          aria-label={`Vista previa de ${getInvestorFullName(
-                            investor,
-                          )}`}
+                          aria-label={
+                            isSelected
+                              ? `Ocultar vista previa de ${getInvestorFullName(
+                                  investor,
+                                )}`
+                              : `Vista previa de ${getInvestorFullName(
+                                  investor,
+                                )}`
+                          }
                           asChild
                         >
                           <Link
-                            href={`/admin?tab=panel&investor=${investor.slug}`}
+                            href={
+                              isSelected
+                                ? "/admin"
+                                : `/admin?investor=${investor.slug}`
+                            }
                           >
-                            <Eye data-icon="inline-start" />
+                            {isSelected ? (
+                              <EyeOff data-icon="inline-start" />
+                            ) : (
+                              <Eye data-icon="inline-start" />
+                            )}
                           </Link>
                         </Button>
                         <div className="min-w-0">

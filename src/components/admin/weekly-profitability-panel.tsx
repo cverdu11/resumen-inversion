@@ -3,10 +3,8 @@
 import { useFormStatus } from "react-dom";
 import {
   CalendarDays,
-  CheckCircle2,
   Clock3,
   Percent,
-  PencilLine,
   Save,
 } from "lucide-react";
 
@@ -42,35 +40,22 @@ const percentInputFormatter = new Intl.NumberFormat("es-ES", {
   useGrouping: false,
 });
 
-const weeklyStatus: Record<
-  WeeklyProfitabilityItem["status"],
-  {
-    label: string;
-    className: string;
-    icon: typeof CheckCircle2;
-  }
-> = {
-  closed: {
-    label: "Cerrada",
-    className: "border-positive/35 bg-positive-soft text-positive",
-    icon: CheckCircle2,
-  },
-  draft: {
-    label: "Borrador",
-    className: "border-info/35 bg-info-soft text-info",
-    icon: PencilLine,
-  },
-  pending: {
-    label: "Pendiente",
-    className: "border-warning/35 bg-warning-soft text-warning",
-    icon: Clock3,
-  },
-};
-
 const weeklyErrorCopy: Record<string, string> = {
   invalid: "Revisa la semana y el porcentaje. El valor debe estar entre -100 % y 100 %.",
   save: "No se pudo guardar la rentabilidad semanal. Pruebalo de nuevo.",
 };
+
+const weeklyStatusOptions: {
+  value: WeeklyProfitabilityItem["status"];
+  label: string;
+}[] = [
+  { value: "draft", label: "Borrador" },
+  { value: "closed", label: "Cerrada" },
+  { value: "pending", label: "Pendiente" },
+];
+
+const fieldClassName =
+  "h-8 w-full rounded-md border bg-background/45 px-2.5 text-sm text-card-foreground outline-none transition-colors focus:border-primary/70 focus:ring-2 focus:ring-primary/20";
 
 function formatPeriodDate(date: string) {
   const formatted = periodDateFormatter
@@ -86,27 +71,6 @@ function formatPeriod(startDate: string, endDate: string) {
 
 function formatReturnInput(value: number) {
   return percentInputFormatter.format(value);
-}
-
-function WeeklyStatusPill({
-  status,
-}: {
-  status: WeeklyProfitabilityItem["status"];
-}) {
-  const styles = weeklyStatus[status];
-  const Icon = styles.icon;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[0.68rem] font-semibold uppercase",
-        styles.className,
-      )}
-    >
-      <Icon className="size-3.5" />
-      {styles.label}
-    </span>
-  );
 }
 
 function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
@@ -127,18 +91,24 @@ function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
 
 function WeeklyReturnForm({
   compact = false,
+  includeHiddenStatus = true,
   next,
+  showStatus = false,
   week,
 }: {
   compact?: boolean;
+  includeHiddenStatus?: boolean;
   next: string;
+  showStatus?: boolean;
   week: WeeklyProfitabilityItem;
 }) {
   const inputId = `return-pct-${week.id}`;
+  const formId = `weekly-form-${week.id}`;
 
   return (
     <form
       action={saveWeeklyProfitability}
+      id={formId}
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2",
         compact ? "justify-end md:flex md:items-center" : "mt-3",
@@ -153,7 +123,8 @@ function WeeklyReturnForm({
       <div className="relative min-w-0">
         <input
           className={cn(
-            "h-8 w-full rounded-md border bg-background/45 py-1.5 pl-2.5 pr-7 text-right text-sm tabular-nums text-card-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/70 focus:ring-2 focus:ring-primary/20",
+            fieldClassName,
+            "py-1.5 pl-2.5 pr-7 text-right tabular-nums placeholder:text-muted-foreground/70",
             compact && "md:w-24",
           )}
           defaultValue={week.isSaved ? formatReturnInput(week.returnPct) : ""}
@@ -167,8 +138,51 @@ function WeeklyReturnForm({
           %
         </span>
       </div>
+      {showStatus ? (
+        <label className="col-span-2 grid gap-1.5">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            Estado
+          </span>
+          <select
+            className={fieldClassName}
+            defaultValue={week.status}
+            name="status"
+          >
+            {weeklyStatusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : includeHiddenStatus ? (
+        <input name="status" type="hidden" value={week.status} />
+      ) : null}
       <SaveWeeklyButton compact={compact} />
     </form>
+  );
+}
+
+function WeeklyStatusSelect({
+  formId,
+  status,
+}: {
+  formId: string;
+  status: WeeklyProfitabilityItem["status"];
+}) {
+  return (
+    <select
+      className={cn(fieldClassName, "w-32 text-xs font-semibold uppercase")}
+      defaultValue={status}
+      form={formId}
+      name="status"
+    >
+      {weeklyStatusOptions.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -181,21 +195,18 @@ function MobileWeekRow({
 }) {
   return (
     <div className="border-b px-4 py-4 last:border-b-0">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-card-foreground">
-            {week.weekLabel}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {week.monthLabel}
-          </p>
-          <p className="mt-1 text-xs text-card-foreground/76">
-            {formatPeriod(week.startDate, week.endDate)}
-          </p>
-        </div>
-        <WeeklyStatusPill status={week.status} />
+      <div>
+        <p className="text-sm font-semibold text-card-foreground">
+          {week.weekLabel}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {week.monthLabel}
+        </p>
+        <p className="mt-1 text-xs text-card-foreground/76">
+          {formatPeriod(week.startDate, week.endDate)}
+        </p>
       </div>
-      <WeeklyReturnForm next={next} week={week} />
+      <WeeklyReturnForm next={next} showStatus week={week} />
     </div>
   );
 }
@@ -220,7 +231,6 @@ export function WeeklyProfitabilityPanel({
   const closedWeeks = weeks.filter(
     (week) => week.status === "closed" && week.isSaved,
   );
-  const pendingWeeks = weeks.filter((week) => !week.isSaved).length;
   const weeklyErrorMessage = weeklyError
     ? weeklyErrorCopy[weeklyError] ?? "No se pudo guardar la rentabilidad semanal."
     : "";
@@ -281,7 +291,7 @@ export function WeeklyProfitabilityPanel({
             >
               {currentWeek?.isSaved
                 ? formatPercent(currentWeek.returnPct, { sign: true })
-                : "Sin %"}
+                : "-"}
             </p>
           </div>
           <div className="px-5 py-4">
@@ -299,9 +309,6 @@ export function WeeklyProfitabilityPanel({
               </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="rounded-md border bg-background/35 px-3 py-2 text-sm text-muted-foreground">
-                {pendingWeeks} pendientes
-              </span>
               <span className="rounded-md border bg-background/35 px-3 py-2 text-sm text-card-foreground">
                 {closedWeeks.length} semanas cerradas
               </span>
@@ -324,29 +331,41 @@ export function WeeklyProfitabilityPanel({
               <TableHead className="min-w-44 text-right">
                 Rentabilidad
               </TableHead>
-              <TableHead className="min-w-32">Estado</TableHead>
+              <TableHead className="min-w-56">Estado</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {weeks.map((week) => (
-              <TableRow key={week.id}>
-                <TableCell className="font-medium text-card-foreground">
-                  {week.weekLabel}
-                </TableCell>
-                <TableCell className="text-card-foreground/86">
-                  {week.monthLabel}
-                </TableCell>
-                <TableCell className="tabular-nums text-card-foreground/86">
-                  {formatPeriod(week.startDate, week.endDate)}
-                </TableCell>
-                <TableCell>
-                  <WeeklyReturnForm compact next={next} week={week} />
-                </TableCell>
-                <TableCell>
-                  <WeeklyStatusPill status={week.status} />
-                </TableCell>
-              </TableRow>
-            ))}
+            {weeks.map((week) => {
+              const formId = `weekly-form-${week.id}`;
+
+              return (
+                <TableRow key={week.id}>
+                  <TableCell className="font-medium text-card-foreground">
+                    {week.weekLabel}
+                  </TableCell>
+                  <TableCell className="text-card-foreground/86">
+                    {week.monthLabel}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-card-foreground/86">
+                    {formatPeriod(week.startDate, week.endDate)}
+                  </TableCell>
+                  <TableCell>
+                    <WeeklyReturnForm
+                      compact
+                      includeHiddenStatus={false}
+                      next={next}
+                      week={week}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <WeeklyStatusSelect
+                      formId={formId}
+                      status={week.status}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>

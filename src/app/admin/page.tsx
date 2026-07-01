@@ -45,6 +45,11 @@ type DatabaseMovementRow = {
   note: string | null;
 };
 
+type ClosedWeeklyReturn = {
+  weekEnd: string;
+  returnPct: number;
+};
+
 const validInvestorStatuses = new Set<InvestorStatus>([
   "active",
   "watch",
@@ -90,9 +95,69 @@ function getMovementDetail(type: DatabaseMovementRow["movement_type"]) {
   return "Capital inicial registrado";
 }
 
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function getMovementEffect(movement: DatabaseMovementRow) {
+  const amount = Number(movement.amount);
+
+  return movement.movement_type === "withdrawal" ? -amount : amount;
+}
+
+function calculateInvestorPerformance(
+  movements: DatabaseMovementRow[],
+  closedWeeklyReturns: ClosedWeeklyReturn[],
+) {
+  const orderedMovements = [...movements].sort((left, right) => {
+    const dateComparison = left.movement_date.localeCompare(
+      right.movement_date,
+    );
+
+    return dateComparison === 0 ? left.id - right.id : dateComparison;
+  });
+  let balance = 0;
+  let movementIndex = 0;
+
+  for (const weeklyReturn of closedWeeklyReturns) {
+    while (
+      movementIndex < orderedMovements.length &&
+      orderedMovements[movementIndex].movement_date <= weeklyReturn.weekEnd
+    ) {
+      balance += getMovementEffect(orderedMovements[movementIndex]);
+      movementIndex += 1;
+    }
+
+    if (balance > 0) {
+      balance += (balance * weeklyReturn.returnPct) / 100;
+    }
+  }
+
+  while (movementIndex < orderedMovements.length) {
+    balance += getMovementEffect(orderedMovements[movementIndex]);
+    movementIndex += 1;
+  }
+
+  const netCapital = orderedMovements.reduce(
+    (total, movement) => total + getMovementEffect(movement),
+    0,
+  );
+  const currentBalance = roundMoney(balance);
+  const profit = roundMoney(currentBalance - netCapital);
+  const profitabilityPct =
+    netCapital > 0 ? roundMoney((profit / netCapital) * 100) : 0;
+
+  return {
+    currentBalance,
+    profit,
+    profitabilityPct,
+  };
+}
+
 function mapDatabaseInvestors(
   investors: DatabaseInvestorRow[],
   movements: DatabaseMovementRow[],
+  closedWeeklyReturns: ClosedWeeklyReturn[],
 ): MockInvestor[] {
   const movementsByInvestor = new Map<number, DatabaseMovementRow[]>();
 
@@ -117,8 +182,11 @@ function mapDatabaseInvestors(
     const withdrawals = investorMovements
       .filter((movement) => movement.movement_type === "withdrawal")
       .reduce((total, movement) => total + Number(movement.amount), 0);
-    const currentBalance =
-      initialContribution + additionalContributions - withdrawals;
+    const { currentBalance, profit, profitabilityPct } =
+      calculateInvestorPerformance(
+        investorMovements,
+        closedWeeklyReturns,
+      );
 
     return {
       id: `inv-db-${investor.id}`,
@@ -130,8 +198,8 @@ function mapDatabaseInvestors(
       additionalContributions,
       withdrawals,
       currentBalance,
-      profit: 0,
-      profitabilityPct: 0,
+      profit,
+      profitabilityPct,
       status: toInvestorStatus(investor.status),
       movements: investorMovements.map((movement) => ({
         id: `mov-db-${movement.id}`,
@@ -156,8 +224,8 @@ function mapDatabaseInvestors(
           id: `db-${investor.id}-current`,
           month: formatMonthName(investor.start_date),
           balance: currentBalance,
-          profit: 0,
-          returnPct: 0,
+          profit,
+          returnPct: profitabilityPct,
         },
       ],
     };
@@ -195,17 +263,25 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         .in("investor_id", investorIds)
         .order("movement_date", { ascending: true })
     : { data: [] };
-  const databaseInvestors = mapDatabaseInvestors(
-    databaseInvestorRows,
-    (movementRows ?? []) as DatabaseMovementRow[],
-  );
   const { data: weeklyRows } = await supabase
     .from("weekly_profitability")
     .select("id, week_start, week_end, return_pct, status, note")
     .order("week_start", { ascending: false });
-  const weeklyProfitability = buildWeeklyProfitabilityItems(
-    (weeklyRows ?? []) as DatabaseWeeklyProfitabilityRow[],
+  const databaseWeeklyRows =
+    (weeklyRows ?? []) as DatabaseWeeklyProfitabilityRow[];
+  const closedWeeklyReturns = databaseWeeklyRows
+    .filter((week) => week.status === "closed")
+    .map((week) => ({
+      weekEnd: week.week_end,
+      returnPct: Number(week.return_pct),
+    }))
+    .sort((left, right) => left.weekEnd.localeCompare(right.weekEnd));
+  const databaseInvestors = mapDatabaseInvestors(
+    databaseInvestorRows,
+    (movementRows ?? []) as DatabaseMovementRow[],
+    closedWeeklyReturns,
   );
+  const weeklyProfitability = buildWeeklyProfitabilityItems(databaseWeeklyRows);
 
   return (
     <AdminDashboard

@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Coins,
   Database,
-  Percent,
   TrendingUp,
   UsersRound,
 } from "lucide-react";
@@ -60,14 +59,16 @@ export function AdminDashboard({
     () => getAdminOverview(investors, currentWeekProfitability),
     [currentWeekProfitability, investors],
   );
-  const selectedInvestor =
-    investors.find((investor) => investor.slug === selectedInvestorSlug) ??
-    investors[0];
+  const selectedInvestor = investors.find(
+    (investor) => investor.slug === selectedInvestorSlug,
+  );
   const selectedInvestorId = selectedInvestor?.id ?? "";
-  const selectedSlug =
-    selectedInvestor?.slug ?? selectedInvestorSlug ?? investors[0]?.slug;
-  const selectedInvestorParam = selectedSlug ? `&investor=${selectedSlug}` : "";
-  const currentAdminPath = `/admin?tab=${activeTab}${selectedInvestorParam}`;
+  const currentAdminPath =
+    activeTab === "rentabilidad"
+      ? "/admin?tab=rentabilidad"
+      : selectedInvestor
+        ? `/admin?investor=${selectedInvestor.slug}`
+        : "/admin";
 
   const kpis = [
     {
@@ -118,13 +119,13 @@ export function AdminDashboard({
 
   const tabs = [
     {
-      href: `/admin?tab=panel${selectedInvestorParam}`,
+      href: "/admin",
       label: "Panel trader",
       value: "panel",
       icon: UsersRound,
     },
     {
-      href: `/admin?tab=rentabilidad${selectedInvestorParam}`,
+      href: "/admin?tab=rentabilidad",
       label: "% Rentabilidad semanal",
       value: "rentabilidad",
       icon: TrendingUp,
@@ -208,7 +209,12 @@ export function AdminDashboard({
               ))}
             </section>
 
-            <section className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_460px]">
+            <section
+              className={cn(
+                "grid gap-4",
+                selectedInvestor && "2xl:grid-cols-[minmax(0,1fr)_460px]",
+              )}
+            >
               <InvestorTable
                 investorError={investorError}
                 investors={investors}
@@ -223,68 +229,13 @@ export function AdminDashboard({
             </section>
           </>
         ) : (
-          <section className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_460px]">
+          <section>
             <WeeklyProfitabilityPanel
               next={currentAdminPath}
               weeklyError={weeklyError}
               weeklyStatus={weeklyStatus}
               weeks={weeklyProfitability}
             />
-            <Card className="overflow-hidden">
-              <CardContent className="p-0">
-                <div className="border-b px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <Percent className="size-5 text-muted-foreground" />
-                    <div>
-                      <h2 className="text-sm font-semibold uppercase text-card-foreground">
-                        Estructura preparada
-                      </h2>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Rutas, cálculos y acceso quedan para la siguiente fase
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 border-b">
-                  <div className="border-r px-5 py-4">
-                    <p className="text-xs font-semibold uppercase text-muted-foreground">
-                      Ruta admin
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-card-foreground">
-                      /admin
-                    </p>
-                  </div>
-                  <div className="px-5 py-4">
-                    <p className="text-xs font-semibold uppercase text-muted-foreground">
-                      Ruta inversor
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-card-foreground">
-                      /investor/[slug]
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col">
-                  {[
-                    "Autenticación trader/admin",
-                    "Base de datos de inversores",
-                    "Motor de rentabilidad semanal",
-                    "Enlaces protegidos o sesiones de inversor",
-                  ].map((item) => (
-                    <div
-                      key={item}
-                      className="flex items-center justify-between gap-4 border-b px-5 py-3 last:border-b-0"
-                    >
-                      <span className="text-sm text-card-foreground/88">
-                        {item}
-                      </span>
-                      <span className="rounded-md border bg-background/35 px-2 py-1 text-[0.68rem] font-semibold uppercase text-muted-foreground">
-                        Próximo
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </section>
         )}
       </div>

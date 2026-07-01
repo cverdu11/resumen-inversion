@@ -3,9 +3,14 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { getWeekStatusForDate } from "@/lib/weekly-profitability";
+import type { WeeklyProfitabilityStatus } from "@/lib/weekly-profitability";
 
 const validInvestorStatuses = ["active", "watch", "pending", "paused"];
+const validWeeklyStatuses: WeeklyProfitabilityStatus[] = [
+  "draft",
+  "closed",
+  "pending",
+];
 const defaultMovementNotes = {
   contribution: "Aportacion parcial",
   withdrawal: "Retirada parcial",
@@ -145,7 +150,7 @@ function getMovementNoteForSave(
 }
 
 function redirectWithInvestorError(result: string): never {
-  redirect(`/admin?tab=panel&investor_error=${result}`);
+  redirect(`/admin?investor_error=${result}`);
 }
 
 async function getUniqueInvestorSlug(
@@ -250,7 +255,7 @@ export async function createInvestor(formData: FormData) {
     redirectWithInvestorError("movement");
   }
 
-  redirect(`/admin?tab=panel&investor=${investor.slug}`);
+  redirect(`/admin?investor=${investor.slug}`);
 }
 
 export async function updateInvestor(formData: FormData) {
@@ -337,7 +342,7 @@ export async function updateInvestor(formData: FormData) {
     }
   }
 
-  redirect(`/admin?tab=panel&investor=${nextSlug}`);
+  redirect(`/admin?investor=${nextSlug}`);
 }
 
 export async function addInvestorMovement(formData: FormData) {
@@ -377,7 +382,7 @@ export async function addInvestorMovement(formData: FormData) {
     redirectWithInvestorError("movement");
   }
 
-  redirect(`/admin?tab=panel&investor=${slug}`);
+  redirect(`/admin?investor=${slug}`);
 }
 
 export async function updateInvestorMovement(formData: FormData) {
@@ -423,7 +428,7 @@ export async function updateInvestorMovement(formData: FormData) {
     redirectWithInvestorError("movement");
   }
 
-  redirect(`/admin?tab=panel&investor=${slug}`);
+  redirect(`/admin?investor=${slug}`);
 }
 
 export async function deleteInvestorMovement(formData: FormData) {
@@ -447,7 +452,7 @@ export async function deleteInvestorMovement(formData: FormData) {
     redirectWithInvestorError("movement");
   }
 
-  redirect(`/admin?tab=panel&investor=${slug}`);
+  redirect(`/admin?investor=${slug}`);
 }
 
 export async function deleteInvestor(formData: FormData) {
@@ -464,7 +469,7 @@ export async function deleteInvestor(formData: FormData) {
     redirectWithInvestorError("delete");
   }
 
-  redirect("/admin?tab=panel");
+  redirect("/admin");
 }
 
 export async function changeAdminPassword(formData: FormData) {
@@ -520,6 +525,12 @@ export async function saveWeeklyProfitability(formData: FormData) {
   const weekStart = String(formData.get("week_start") ?? "");
   const weekEnd = String(formData.get("week_end") ?? "");
   const returnPct = parsePercentageInput(String(formData.get("return_pct") ?? ""));
+  const rawStatus = String(formData.get("status") ?? "draft");
+  const status = validWeeklyStatuses.includes(
+    rawStatus as WeeklyProfitabilityStatus,
+  )
+    ? (rawStatus as WeeklyProfitabilityStatus)
+    : "draft";
 
   if (
     !weekStart ||
@@ -532,7 +543,6 @@ export async function saveWeeklyProfitability(formData: FormData) {
   }
 
   const { supabase } = await getAuthorizedTraderClient();
-  const status = getWeekStatusForDate(weekStart);
   const { error } = await supabase.from("weekly_profitability").upsert(
     {
       week_start: weekStart,
