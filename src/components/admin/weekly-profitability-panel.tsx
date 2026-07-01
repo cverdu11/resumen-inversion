@@ -71,6 +71,24 @@ const weeklyStatusClassName: Record<WeeklyProfitabilityItem["status"], string> =
     pending: "border-warning/35 bg-warning-soft text-warning",
   };
 
+const weeklyStatusOptionStyle: Record<
+  WeeklyProfitabilityItem["status"],
+  { backgroundColor: string; color: string }
+> = {
+  draft: {
+    backgroundColor: "var(--danger-soft)",
+    color: "var(--danger)",
+  },
+  closed: {
+    backgroundColor: "var(--positive-soft)",
+    color: "var(--positive)",
+  },
+  pending: {
+    backgroundColor: "var(--warning-soft)",
+    color: "var(--warning)",
+  },
+};
+
 const fieldClassName =
   "h-8 w-full rounded-md border bg-background/45 px-2.5 text-sm text-card-foreground outline-none transition-colors focus:border-primary/70 focus:ring-2 focus:ring-primary/20";
 
@@ -226,7 +244,12 @@ function WeeklyStatusSelect({
       value={selectedStatus}
     >
       {weeklyStatusOptions.map((option) => (
-        <option key={option.value} value={option.value}>
+        <option
+          className={weeklyStatusClassName[option.value]}
+          key={option.value}
+          style={weeklyStatusOptionStyle[option.value]}
+          value={option.value}
+        >
           {option.label}
         </option>
       ))}
