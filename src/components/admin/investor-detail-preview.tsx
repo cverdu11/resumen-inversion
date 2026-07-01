@@ -78,21 +78,17 @@ function DetailMetric({
   );
 }
 
-function MovementSubmitButton({ isContribution }: { isContribution: boolean }) {
+function MovementSubmitButton() {
   const { pending } = useFormStatus();
 
   return (
     <Button
       type="submit"
       size="sm"
-      className="h-7 justify-self-end px-2.5"
+      className="h-8 px-3 min-[420px]:mb-px min-[420px]:self-end"
       disabled={pending}
     >
-      {pending
-        ? "Guardando..."
-        : isContribution
-          ? "Guardar aportaci\u00f3n"
-          : "Guardar retirada"}
+      {pending ? "Guardando..." : "Guardar"}
     </Button>
   );
 }
@@ -167,10 +163,7 @@ function MovementActionForm({
           +
         </span>
       </summary>
-      <form
-        action={addInvestorMovement}
-        className="grid gap-2.5 border-t p-2.5"
-      >
+      <form action={addInvestorMovement} className="grid gap-2 border-t p-2.5">
         <input type="hidden" name="slug" value={investorSlug} />
         <input type="hidden" name="movement_type" value={type} />
         <label className="grid gap-1">
@@ -193,16 +186,18 @@ function MovementActionForm({
             required
           />
         </label>
-        <label className="grid gap-1">
-          <span className={fieldLabelClassName}>Concepto</span>
-          <input
-            name="note"
-            type="text"
-            defaultValue={defaultNote}
-            className={compactInputClassName}
-          />
-        </label>
-        <MovementSubmitButton isContribution={isContribution} />
+        <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_auto] min-[420px]:items-end">
+          <label className="grid gap-1">
+            <span className={fieldLabelClassName}>Concepto</span>
+            <input
+              name="note"
+              type="text"
+              defaultValue={defaultNote}
+              className={compactInputClassName}
+            />
+          </label>
+          <MovementSubmitButton />
+        </div>
       </form>
     </details>
   );
@@ -296,6 +291,8 @@ function MovementEditForm({
               required
             />
           </label>
+        </div>
+        <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
           <label className="grid gap-1">
             <span className={fieldLabelClassName}>Importe</span>
             <input
@@ -318,7 +315,7 @@ function MovementEditForm({
             />
           </label>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <MovementDeleteButton
             movementLabel={getMovementDisplayNote(movement)}
           />
