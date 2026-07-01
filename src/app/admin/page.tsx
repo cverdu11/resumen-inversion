@@ -144,6 +144,9 @@ function calculateInvestorPerformance(
   for (const monthKey of monthKeys) {
     const monthStart = `${monthKey}-01`;
     const nextMonthStart = getNextMonthStart(monthKey);
+    const monthWeeklyReturns = [
+      ...(weeklyReturnsByMonth.get(monthKey) ?? []),
+    ].sort((left, right) => left.weekEnd.localeCompare(right.weekEnd));
 
     while (
       movementIndex < orderedMovements.length &&
@@ -154,23 +157,32 @@ function calculateInvestorPerformance(
     }
 
     const monthStartBalance = balance;
-
-    if (monthStartBalance > 0) {
-      const monthlyProfit = (weeklyReturnsByMonth.get(monthKey) ?? []).reduce(
-        (total, weeklyReturn) =>
-          total + (monthStartBalance * weeklyReturn.returnPct) / 100,
-        0,
-      );
-      balance += monthlyProfit;
-    }
+    const monthMovements: DatabaseMovementRow[] = [];
 
     while (
       movementIndex < orderedMovements.length &&
       orderedMovements[movementIndex].movement_date < nextMonthStart
     ) {
-      balance += getMovementEffect(orderedMovements[movementIndex]);
+      monthMovements.push(orderedMovements[movementIndex]);
       movementIndex += 1;
     }
+
+    const monthMovementTotal = monthMovements.reduce(
+      (total, movement) => total + getMovementEffect(movement),
+      0,
+    );
+    const monthlyProfit = monthWeeklyReturns.reduce((total, weeklyReturn) => {
+      const weeklyMovementEffect = monthMovements
+        .filter((movement) => movement.movement_date <= weeklyReturn.weekEnd)
+        .reduce((sum, movement) => sum + getMovementEffect(movement), 0);
+      const weeklyBase = monthStartBalance + weeklyMovementEffect;
+
+      return weeklyBase > 0
+        ? total + (weeklyBase * weeklyReturn.returnPct) / 100
+        : total;
+    }, 0);
+
+    balance = monthStartBalance + monthMovementTotal + monthlyProfit;
   }
 
   while (movementIndex < orderedMovements.length) {
