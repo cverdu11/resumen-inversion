@@ -45,6 +45,10 @@ type MovementActionType = "contribution" | "withdrawal";
 
 const inputClassName =
   "h-9 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
+const defaultDisplayMovementNotes = {
+  contribution: "Aportaci\u00f3n parcial",
+  withdrawal: "Retirada parcial",
+} as const;
 
 function DetailMetric({
   label,
@@ -117,9 +121,7 @@ function MovementActionForm({
 }) {
   const isContribution = type === "contribution";
   const Icon = isContribution ? PlusCircle : MinusCircle;
-  const defaultNote = isContribution
-    ? "Aportación parcial"
-    : "Retirada parcial";
+  const defaultNote = defaultDisplayMovementNotes[type];
 
   return (
     <details className="group rounded-lg border bg-background/28">
@@ -186,7 +188,32 @@ function MovementActionForm({
 }
 
 function formatMovementNote(note: string) {
-  return note.replaceAll("Aportacion", "Aportación");
+  return note.replaceAll("Aportacion", "Aportaci\u00f3n");
+}
+
+function normalizeMovementNote(note: string) {
+  return note
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isDefaultMovementNote(note: string) {
+  const normalizedNote = normalizeMovementNote(note);
+
+  return (
+    normalizedNote === "aportacion parcial" ||
+    normalizedNote === "retirada parcial"
+  );
+}
+
+function getMovementDisplayNote(movement: InvestorMovement) {
+  const note = formatMovementNote(movement.note);
+
+  return isDefaultMovementNote(note)
+    ? defaultDisplayMovementNotes[movement.type]
+    : note;
 }
 
 function MovementEditForm({
@@ -198,6 +225,12 @@ function MovementEditForm({
   movement: InvestorMovement;
   onCancel: () => void;
 }) {
+  const initialNote = getMovementDisplayNote(movement);
+  const [selectedType, setSelectedType] = useState<MovementActionType>(
+    movement.type,
+  );
+  const [noteValue, setNoteValue] = useState(initialNote);
+
   if (!movement.sourceId || movement.sourceType === "initial_contribution") {
     return null;
   }
@@ -208,55 +241,69 @@ function MovementEditForm({
         <input type="hidden" name="slug" value={investorSlug} />
         <input type="hidden" name="movement_id" value={movement.sourceId} />
         <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1.5">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">
-            Tipo
-          </span>
-          <select
-            name="movement_type"
-            className={inputClassName}
-            defaultValue={movement.type}
-          >
-            <option value="contribution">Aportación</option>
-            <option value="withdrawal">Retirada</option>
-          </select>
-        </label>
-        <label className="grid gap-1.5">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">
-            Fecha
-          </span>
-          <input
-            type="date"
-            name="movement_date"
-            className={inputClassName}
-            defaultValue={movement.date}
-            required
-          />
-        </label>
-        <label className="grid gap-1.5">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">
-            Importe
-          </span>
-          <input
-            name="amount"
-            type="text"
-            inputMode="decimal"
-            className={cn(inputClassName, "tabular-nums")}
-            defaultValue={String(movement.amount)}
-            required
-          />
-        </label>
-        <label className="grid gap-1.5">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">
-            Concepto
-          </span>
-          <input
-            name="note"
-            type="text"
-            className={inputClassName}
-            defaultValue={formatMovementNote(movement.note)}
-          />
-        </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Tipo
+            </span>
+            <select
+              name="movement_type"
+              className={inputClassName}
+              value={selectedType}
+              onChange={(event) => {
+                const nextType =
+                  event.target.value === "withdrawal"
+                    ? "withdrawal"
+                    : "contribution";
+
+                setSelectedType(nextType);
+                setNoteValue((currentNote) =>
+                  isDefaultMovementNote(currentNote)
+                    ? defaultDisplayMovementNotes[nextType]
+                    : currentNote,
+                );
+              }}
+            >
+              <option value="contribution">{"Aportaci\u00f3n"}</option>
+              <option value="withdrawal">Retirada</option>
+            </select>
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Fecha
+            </span>
+            <input
+              type="date"
+              name="movement_date"
+              className={inputClassName}
+              defaultValue={movement.date}
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Importe
+            </span>
+            <input
+              name="amount"
+              type="text"
+              inputMode="decimal"
+              className={cn(inputClassName, "tabular-nums")}
+              defaultValue={String(movement.amount)}
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Concepto
+            </span>
+            <input
+              name="note"
+              type="text"
+              className={inputClassName}
+              value={noteValue}
+              onChange={(event) => setNoteValue(event.target.value)}
+            />
+          </label>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
@@ -271,7 +318,7 @@ function MovementEditForm({
         onSubmit={(event) => {
           if (
             !window.confirm(
-              `Eliminar este movimiento: ${formatMovementNote(movement.note)}?`,
+              `Eliminar este movimiento: ${getMovementDisplayNote(movement)}?`,
             )
           ) {
             event.preventDefault();
@@ -333,7 +380,7 @@ function MovementsSection({ investor }: { investor: MockInvestor }) {
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-card-foreground">
-                    {formatMovementNote(movement.note)}
+                    {getMovementDisplayNote(movement)}
                   </span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     {formatShortDate(movement.date)}
@@ -353,7 +400,7 @@ function MovementsSection({ investor }: { investor: MockInvestor }) {
                     variant={isEditing ? "secondary" : "ghost"}
                     size="icon"
                     className="size-8 rounded-sm"
-                    aria-label={`Editar ${formatMovementNote(movement.note)}`}
+                    aria-label={`Editar ${getMovementDisplayNote(movement)}`}
                     onClick={() =>
                       setEditingMovementId((currentId) =>
                         currentId === movement.id ? null : movement.id,

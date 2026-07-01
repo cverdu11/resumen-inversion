@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const validInvestorStatuses = ["active", "watch", "pending", "paused"];
+const defaultMovementNotes = {
+  contribution: "Aportacion parcial",
+  withdrawal: "Retirada parcial",
+} as const;
 
 function getSafeNext(value: FormDataEntryValue | null) {
   const next = String(value ?? "/admin");
@@ -97,6 +101,26 @@ function parseMoneyInput(value: string) {
   }
 
   return Number(compactValue);
+}
+
+function normalizeNoteLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function getMovementNoteForSave(
+  note: string,
+  movementType: keyof typeof defaultMovementNotes,
+) {
+  const normalizedNote = normalizeNoteLabel(note);
+  const isDefaultLabel =
+    normalizedNote === "aportacion parcial" ||
+    normalizedNote === "retirada parcial";
+
+  return !note || isDefaultLabel ? defaultMovementNotes[movementType] : note;
 }
 
 function redirectWithInvestorError(result: string): never {
@@ -325,11 +349,7 @@ export async function addInvestorMovement(formData: FormData) {
     movement_type: movementType,
     movement_date: movementDate,
     amount,
-    note:
-      note ||
-      (movementType === "contribution"
-        ? "Aportacion parcial"
-        : "Retirada parcial"),
+    note: getMovementNoteForSave(note, movementType),
   });
 
   if (error) {
@@ -372,11 +392,7 @@ export async function updateInvestorMovement(formData: FormData) {
       movement_type: movementType,
       movement_date: movementDate,
       amount,
-      note:
-        note ||
-        (movementType === "contribution"
-          ? "Aportacion parcial"
-          : "Retirada parcial"),
+      note: getMovementNoteForSave(note, movementType),
     })
     .eq("id", movementId)
     .eq("investor_id", investor.id)
