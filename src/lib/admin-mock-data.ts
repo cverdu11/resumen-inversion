@@ -641,7 +641,11 @@ export function getNetCapital(investor: MockInvestor) {
   );
 }
 
-export function getAdminOverview(investors = mockInvestors) {
+export function getAdminOverview(
+  investors = mockInvestors,
+  currentWeekProfitability =
+    weeklyProfitability.find((item) => item.status === "draft")?.returnPct ?? 0,
+) {
   const totalCapitalInvested = investors.reduce(
     (total, investor) => total + getNetCapital(investor),
     0,
@@ -657,9 +661,6 @@ export function getAdminOverview(investors = mockInvestors) {
           0,
         ) / investors.length
       : 0;
-  const currentWeekProfitability =
-    weeklyProfitability.find((item) => item.status === "draft")?.returnPct ?? 0;
-
   return {
     totalInvestors: investors.length,
     totalCapitalInvested,

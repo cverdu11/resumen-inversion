@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { getWeekStatusForDate } from "@/lib/weekly-profitability";
 
 const validInvestorStatuses = ["active", "watch", "pending", "paused"];
 const defaultMovementNotes = {
@@ -27,6 +28,22 @@ function redirectWithPasswordResult(next: string, result: string): never {
     params.set("password_status", "updated");
   } else {
     params.set("password_error", result);
+  }
+
+  redirect(`${pathname}?${params.toString()}`);
+}
+
+function redirectWithWeeklyResult(next: string, result: string): never {
+  const [pathname, query = ""] = next.split("?");
+  const params = new URLSearchParams(query);
+
+  params.delete("weekly_status");
+  params.delete("weekly_error");
+
+  if (result === "saved") {
+    params.set("weekly_status", "saved");
+  } else {
+    params.set("weekly_error", result);
   }
 
   redirect(`${pathname}?${params.toString()}`);
@@ -101,6 +118,10 @@ function parseMoneyInput(value: string) {
   }
 
   return Number(compactValue);
+}
+
+function parsePercentageInput(value: string) {
+  return parseMoneyInput(value.replace("%", ""));
 }
 
 function normalizeNoteLabel(value: string) {
@@ -492,4 +513,40 @@ export async function changeAdminPassword(formData: FormData) {
   }
 
   redirectWithPasswordResult(next, "updated");
+}
+
+export async function saveWeeklyProfitability(formData: FormData) {
+  const next = getSafeNext(formData.get("next"));
+  const weekStart = String(formData.get("week_start") ?? "");
+  const weekEnd = String(formData.get("week_end") ?? "");
+  const returnPct = parsePercentageInput(String(formData.get("return_pct") ?? ""));
+
+  if (
+    !weekStart ||
+    !weekEnd ||
+    weekEnd < weekStart ||
+    !Number.isFinite(returnPct) ||
+    Math.abs(returnPct) > 100
+  ) {
+    redirectWithWeeklyResult(next, "invalid");
+  }
+
+  const { supabase } = await getAuthorizedTraderClient();
+  const status = getWeekStatusForDate(weekStart);
+  const { error } = await supabase.from("weekly_profitability").upsert(
+    {
+      week_start: weekStart,
+      week_end: weekEnd,
+      return_pct: returnPct,
+      status,
+      closed_at: status === "closed" ? new Date().toISOString() : null,
+    },
+    { onConflict: "week_start" },
+  );
+
+  if (error) {
+    redirectWithWeeklyResult(next, "save");
+  }
+
+  redirectWithWeeklyResult(next, "saved");
 }

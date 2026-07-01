@@ -22,10 +22,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   getAdminOverview,
   type MockInvestor,
-  weeklyProfitability,
 } from "@/lib/admin-mock-data";
 import { formatPercent, formatWholeCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 
 type AdminTab = "panel" | "rentabilidad";
 
@@ -37,6 +37,9 @@ export function AdminDashboard({
   passwordStatus,
   selectedInvestorSlug,
   userEmail,
+  weeklyError,
+  weeklyProfitability,
+  weeklyStatus,
 }: {
   activeTab: AdminTab;
   databaseInvestors: MockInvestor[];
@@ -45,9 +48,18 @@ export function AdminDashboard({
   passwordStatus?: string;
   selectedInvestorSlug?: string;
   userEmail?: string;
+  weeklyError?: string;
+  weeklyProfitability: WeeklyProfitabilityItem[];
+  weeklyStatus?: string;
 }) {
   const investors = databaseInvestors;
-  const overview = useMemo(() => getAdminOverview(investors), [investors]);
+  const currentWeekProfitability =
+    weeklyProfitability.find((week) => week.isCurrent && week.isSaved)
+      ?.returnPct ?? 0;
+  const overview = useMemo(
+    () => getAdminOverview(investors, currentWeekProfitability),
+    [currentWeekProfitability, investors],
+  );
   const selectedInvestor =
     investors.find((investor) => investor.slug === selectedInvestorSlug) ??
     investors[0];
@@ -212,7 +224,12 @@ export function AdminDashboard({
           </>
         ) : (
           <section className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_460px]">
-            <WeeklyProfitabilityPanel weeks={weeklyProfitability} />
+            <WeeklyProfitabilityPanel
+              next={currentAdminPath}
+              weeklyError={weeklyError}
+              weeklyStatus={weeklyStatus}
+              weeks={weeklyProfitability}
+            />
             <Card className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="border-b px-5 py-4">

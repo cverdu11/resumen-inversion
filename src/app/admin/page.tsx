@@ -5,6 +5,10 @@ import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import type { InvestorStatus, MockInvestor } from "@/lib/admin-mock-data";
 import { formatMonthName } from "@/lib/formatters";
 import { createClient } from "@/lib/supabase/server";
+import {
+  buildWeeklyProfitabilityItems,
+  type DatabaseWeeklyProfitabilityRow,
+} from "@/lib/weekly-profitability";
 
 export const metadata: Metadata = {
   title: "Panel trader | Resumen de Inversión",
@@ -18,6 +22,8 @@ type AdminPageProps = {
     password_error?: string;
     password_status?: string;
     tab?: string;
+    weekly_error?: string;
+    weekly_status?: string;
   }>;
 };
 
@@ -193,6 +199,13 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     databaseInvestorRows,
     (movementRows ?? []) as DatabaseMovementRow[],
   );
+  const { data: weeklyRows } = await supabase
+    .from("weekly_profitability")
+    .select("id, week_start, week_end, return_pct, status, note")
+    .order("week_start", { ascending: false });
+  const weeklyProfitability = buildWeeklyProfitabilityItems(
+    (weeklyRows ?? []) as DatabaseWeeklyProfitabilityRow[],
+  );
 
   return (
     <AdminDashboard
@@ -203,6 +216,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       passwordStatus={params?.password_status}
       selectedInvestorSlug={params?.investor}
       userEmail={user.email}
+      weeklyError={params?.weekly_error}
+      weeklyProfitability={weeklyProfitability}
+      weeklyStatus={params?.weekly_status}
     />
   );
 }
