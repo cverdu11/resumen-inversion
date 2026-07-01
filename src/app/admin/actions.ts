@@ -389,6 +389,30 @@ export async function updateInvestorMovement(formData: FormData) {
   redirect(`/admin?tab=panel&investor=${slug}`);
 }
 
+export async function deleteInvestorMovement(formData: FormData) {
+  const slug = String(formData.get("slug") ?? "").trim();
+  const movementId = Number(formData.get("movement_id"));
+
+  if (!slug || !Number.isInteger(movementId)) {
+    redirectWithInvestorError("movement");
+  }
+
+  const { supabase } = await getAuthorizedTraderClient();
+  const investor = await getInvestorBySlug(supabase, slug);
+  const { error } = await supabase
+    .from("investor_movements")
+    .delete()
+    .eq("id", movementId)
+    .eq("investor_id", investor.id)
+    .neq("movement_type", "initial_contribution");
+
+  if (error) {
+    redirectWithInvestorError("movement");
+  }
+
+  redirect(`/admin?tab=panel&investor=${slug}`);
+}
+
 export async function deleteInvestor(formData: FormData) {
   const slug = String(formData.get("slug") ?? "").trim();
 

@@ -8,12 +8,14 @@ import {
   Pencil,
   PlusCircle,
   Save,
+  Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import {
   addInvestorMovement,
+  deleteInvestorMovement,
   updateInvestorMovement,
 } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
@@ -91,6 +93,17 @@ function MovementUpdateButton() {
     <Button type="submit" size="sm" disabled={pending}>
       <Save data-icon="inline-start" />
       {pending ? "Guardando..." : "Guardar movimiento"}
+    </Button>
+  );
+}
+
+function MovementDeleteButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" variant="destructive" size="sm" disabled={pending}>
+      <Trash2 data-icon="inline-start" />
+      {pending ? "Eliminando..." : "Eliminar movimiento"}
     </Button>
   );
 }
@@ -190,13 +203,11 @@ function MovementEditForm({
   }
 
   return (
-    <form
-      action={updateInvestorMovement}
-      className="mt-3 grid gap-3 rounded-md border bg-background/28 p-3"
-    >
-      <input type="hidden" name="slug" value={investorSlug} />
-      <input type="hidden" name="movement_id" value={movement.sourceId} />
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="mt-3 grid gap-3 rounded-md border bg-background/28 p-3">
+      <form action={updateInvestorMovement} className="grid gap-3">
+        <input type="hidden" name="slug" value={investorSlug} />
+        <input type="hidden" name="movement_id" value={movement.sourceId} />
+        <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5">
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Tipo
@@ -246,14 +257,32 @@ function MovementEditForm({
             defaultValue={formatMovementNote(movement.note)}
           />
         </label>
-      </div>
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancelar
-        </Button>
-        <MovementUpdateButton />
-      </div>
-    </form>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+            Cancelar
+          </Button>
+          <MovementUpdateButton />
+        </div>
+      </form>
+      <form
+        action={deleteInvestorMovement}
+        className="flex justify-end border-t pt-3"
+        onSubmit={(event) => {
+          if (
+            !window.confirm(
+              `Eliminar este movimiento: ${formatMovementNote(movement.note)}?`,
+            )
+          ) {
+            event.preventDefault();
+          }
+        }}
+      >
+        <input type="hidden" name="slug" value={investorSlug} />
+        <input type="hidden" name="movement_id" value={movement.sourceId} />
+        <MovementDeleteButton />
+      </form>
+    </div>
   );
 }
 
