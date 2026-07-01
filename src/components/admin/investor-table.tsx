@@ -1,7 +1,10 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Eye,
   EyeOff,
   Pencil,
@@ -49,6 +52,24 @@ const editInputClassName =
 const editLabelClassName =
   "text-xs font-semibold uppercase text-muted-foreground";
 
+type InvestorSortKey =
+  | "additionalContributions"
+  | "currentBalance"
+  | "initialContribution"
+  | "name"
+  | "profit"
+  | "profitabilityPct"
+  | "startDate"
+  | "status"
+  | "withdrawals";
+
+type SortDirection = "asc" | "desc";
+
+type InvestorSortConfig = {
+  direction: SortDirection;
+  key: InvestorSortKey;
+};
+
 const statusStyles: Record<
   InvestorStatus,
   {
@@ -74,6 +95,25 @@ const statusStyles: Record<
   },
 };
 
+const statusSortRank: Record<InvestorStatus, number> = {
+  active: 0,
+  watch: 1,
+  pending: 2,
+  paused: 3,
+};
+
+const firstSortDirection: Record<InvestorSortKey, SortDirection> = {
+  additionalContributions: "desc",
+  currentBalance: "desc",
+  initialContribution: "desc",
+  name: "asc",
+  profit: "desc",
+  profitabilityPct: "desc",
+  startDate: "desc",
+  status: "asc",
+  withdrawals: "desc",
+};
+
 export function InvestorStatusPill({ status }: { status: InvestorStatus }) {
   const styles = statusStyles[status];
 
@@ -86,6 +126,109 @@ export function InvestorStatusPill({ status }: { status: InvestorStatus }) {
     >
       {styles.label}
     </span>
+  );
+}
+
+function compareInvestorNames(left: MockInvestor, right: MockInvestor) {
+  return getInvestorFullName(left).localeCompare(getInvestorFullName(right), "es", {
+    sensitivity: "base",
+  });
+}
+
+function compareInvestorsByKey(
+  left: MockInvestor,
+  right: MockInvestor,
+  sortKey: InvestorSortKey,
+) {
+  switch (sortKey) {
+    case "additionalContributions":
+      return left.additionalContributions - right.additionalContributions;
+    case "currentBalance":
+      return left.currentBalance - right.currentBalance;
+    case "initialContribution":
+      return left.initialContribution - right.initialContribution;
+    case "name":
+      return compareInvestorNames(left, right);
+    case "profit":
+      return left.profit - right.profit;
+    case "profitabilityPct":
+      return left.profitabilityPct - right.profitabilityPct;
+    case "startDate":
+      return left.startDate.localeCompare(right.startDate);
+    case "status":
+      return statusSortRank[left.status] - statusSortRank[right.status];
+    case "withdrawals":
+      return left.withdrawals - right.withdrawals;
+  }
+}
+
+function sortInvestors(
+  investors: MockInvestor[],
+  sortConfig: InvestorSortConfig | null,
+) {
+  if (sortConfig === null) {
+    return investors;
+  }
+
+  return [...investors].sort((left, right) => {
+    const directionMultiplier = sortConfig.direction === "asc" ? 1 : -1;
+    const primaryComparison =
+      compareInvestorsByKey(left, right, sortConfig.key) * directionMultiplier;
+
+    return primaryComparison !== 0
+      ? primaryComparison
+      : compareInvestorNames(left, right);
+  });
+}
+
+function SortableTableHead({
+  align = "left",
+  children,
+  className,
+  onSort,
+  sortConfig,
+  sortKey,
+}: {
+  align?: "left" | "right";
+  children: ReactNode;
+  className?: string;
+  onSort: (sortKey: InvestorSortKey) => void;
+  sortConfig: InvestorSortConfig | null;
+  sortKey: InvestorSortKey;
+}) {
+  const isActive = sortConfig?.key === sortKey;
+  const ariaSort = isActive
+    ? sortConfig.direction === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+  const SortIcon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <TableHead aria-sort={ariaSort} className={className}>
+      <button
+        className={cn(
+          "inline-flex w-full items-center gap-1.5 rounded-md py-1 text-xs font-medium uppercase text-muted-foreground transition-colors hover:text-card-foreground",
+          align === "right" ? "justify-end" : "justify-start",
+          isActive && "text-card-foreground",
+        )}
+        onClick={() => onSort(sortKey)}
+        title="Ordenar"
+        type="button"
+      >
+        <span>{children}</span>
+        <SortIcon
+          className={cn(
+            "size-3.5 shrink-0",
+            isActive ? "text-primary" : "text-muted-foreground/70",
+          )}
+        />
+      </button>
+    </TableHead>
   );
 }
 
@@ -317,11 +460,32 @@ export function InvestorTable({
   const [editingInvestorSlug, setEditingInvestorSlug] = useState<string | null>(
     null,
   );
+  const [sortConfig, setSortConfig] = useState<InvestorSortConfig | null>(null);
+  const sortedInvestors = useMemo(
+    () => sortInvestors(investors, sortConfig),
+    [investors, sortConfig],
+  );
 
   function toggleEditingInvestor(slug: string) {
     setEditingInvestorSlug((currentSlug) =>
       currentSlug === slug ? null : slug,
     );
+  }
+
+  function handleSort(sortKey: InvestorSortKey) {
+    setSortConfig((currentSortConfig) => {
+      if (currentSortConfig?.key !== sortKey) {
+        return {
+          direction: firstSortDirection[sortKey],
+          key: sortKey,
+        };
+      }
+
+      return {
+        direction: currentSortConfig.direction === "asc" ? "desc" : "asc",
+        key: sortKey,
+      };
+    });
   }
 
   return (
@@ -363,7 +527,7 @@ export function InvestorTable({
               No hay inversores registrados todavia.
             </div>
           ) : null}
-          {investors.map((investor) => (
+          {sortedInvestors.map((investor) => (
             <MobileInvestorCard
               key={investor.id}
               investor={investor}
@@ -379,27 +543,84 @@ export function InvestorTable({
         >
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-[220px]">Inversor</TableHead>
-              <TableHead className="min-w-[90px]">Fecha inicio</TableHead>
-              <TableHead className="min-w-[124px] text-right">
+              <SortableTableHead
+                className="min-w-[220px]"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="name"
+              >
+                Inversor
+              </SortableTableHead>
+              <SortableTableHead
+                className="min-w-[90px]"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="startDate"
+              >
+                Fecha inicio
+              </SortableTableHead>
+              <SortableTableHead
+                align="right"
+                className="min-w-[124px] text-right"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="initialContribution"
+              >
                 Aportación inicial
-              </TableHead>
-              <TableHead className="min-w-[150px] text-right">
+              </SortableTableHead>
+              <SortableTableHead
+                align="right"
+                className="min-w-[150px] text-right"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="additionalContributions"
+              >
                 Aportaciones parciales
-              </TableHead>
-              <TableHead className="min-w-[110px] text-right">
+              </SortableTableHead>
+              <SortableTableHead
+                align="right"
+                className="min-w-[110px] text-right"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="withdrawals"
+              >
                 Retiradas
-              </TableHead>
-              <TableHead className="min-w-[135px] text-right">
+              </SortableTableHead>
+              <SortableTableHead
+                align="right"
+                className="min-w-[135px] text-right"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="currentBalance"
+              >
                 Balance actual
-              </TableHead>
-              <TableHead className="min-w-[105px] text-right">
+              </SortableTableHead>
+              <SortableTableHead
+                align="right"
+                className="min-w-[105px] text-right"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="profit"
+              >
                 Beneficio
-              </TableHead>
-              <TableHead className="min-w-[120px] text-right">
+              </SortableTableHead>
+              <SortableTableHead
+                align="right"
+                className="min-w-[120px] text-right"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="profitabilityPct"
+              >
                 Rentabilidad
-              </TableHead>
-              <TableHead className="min-w-[95px]">Estado</TableHead>
+              </SortableTableHead>
+              <SortableTableHead
+                className="min-w-[95px]"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="status"
+              >
+                Estado
+              </SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -413,7 +634,7 @@ export function InvestorTable({
                 </TableCell>
               </TableRow>
             ) : null}
-            {investors.map((investor) => {
+            {sortedInvestors.map((investor) => {
               const isSelected = selectedInvestorId === investor.id;
 
               return (
