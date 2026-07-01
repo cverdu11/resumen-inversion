@@ -37,8 +37,8 @@ import {
 } from "@/lib/admin-mock-data";
 import {
   formatCurrency,
+  formatFullDate,
   formatPercent,
-  formatShortDate,
   valueTone,
 } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
@@ -143,6 +143,7 @@ function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
             <span className={editLabelClassName}>Fecha inicio</span>
             <input
               className={editInputClassName}
+              lang="es-ES"
               name="start_date"
               type="date"
               defaultValue={investor.startDate}
@@ -241,7 +242,7 @@ function MobileInvestorCard({
               {getInvestorFullName(investor)}
             </span>
             <span className="mt-1 block truncate text-xs text-muted-foreground">
-              /investor/{investor.slug}
+              ID {investor.id.replace("inv-", "")}
             </span>
           </Link>
         </span>
@@ -277,7 +278,7 @@ function MobileInvestorCard({
             Inicio
           </span>
           <span className="mt-1 block text-sm font-semibold tabular-nums text-card-foreground">
-            {formatShortDate(investor.startDate)}
+            {formatFullDate(investor.startDate)}
           </span>
         </span>
         <span className="rounded-md border bg-background/28 px-3 py-2">
@@ -374,7 +375,7 @@ export function InvestorTable({
         </div>
         <Table
           containerClassName="hidden lg:block"
-          className="min-w-[1284px] [&_td]:px-3 [&_th]:px-3"
+          className="min-w-[1108px] [&_td]:px-3 [&_th]:px-3"
         >
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur">
             <TableRow className="hover:bg-transparent">
@@ -399,14 +400,13 @@ export function InvestorTable({
                 Rentabilidad
               </TableHead>
               <TableHead className="min-w-[95px]">Estado</TableHead>
-              <TableHead className="min-w-[175px]">Ruta inversor</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {investors.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={10}
+                  colSpan={9}
                   className="h-28 text-center text-sm text-muted-foreground"
                 >
                   No hay inversores registrados todavia.
@@ -459,9 +459,9 @@ export function InvestorTable({
                             }
                           >
                             {isSelected ? (
-                              <EyeOff data-icon="inline-start" />
-                            ) : (
                               <Eye data-icon="inline-start" />
+                            ) : (
+                              <EyeOff data-icon="inline-start" />
                             )}
                           </Link>
                         </Button>
@@ -476,7 +476,7 @@ export function InvestorTable({
                       </div>
                     </TableCell>
                     <TableCell className="tabular-nums text-card-foreground/86">
-                      {formatShortDate(investor.startDate)}
+                      {formatFullDate(investor.startDate)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-card-foreground/86">
                       {formatCurrency(investor.initialContribution)}
@@ -515,15 +515,10 @@ export function InvestorTable({
                     <TableCell>
                       <InvestorStatusPill status={investor.status} />
                     </TableCell>
-                    <TableCell>
-                      <code className="whitespace-nowrap rounded-md border bg-background/35 px-2 py-1 text-xs text-card-foreground/90">
-                        /investor/{investor.slug}
-                      </code>
-                    </TableCell>
                   </TableRow>
                   {editingInvestorSlug === investor.slug ? (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={10} className="bg-background/16 p-4">
+                      <TableCell colSpan={9} className="bg-background/16 p-4">
                         <InvestorEditPanel investor={investor} />
                       </TableCell>
                     </TableRow>

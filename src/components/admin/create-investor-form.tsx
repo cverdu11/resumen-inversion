@@ -76,6 +76,7 @@ export function CreateInvestorForm({
           <span className={labelClassName}>Fecha inicio</span>
           <input
             className={inputClassName}
+            lang="es-ES"
             name="start_date"
             type="date"
             defaultValue="2026-06-30"

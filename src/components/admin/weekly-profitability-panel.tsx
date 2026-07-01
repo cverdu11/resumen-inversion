@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ArrowUpDown,
   CalendarDays,
+  ChevronDown,
+  ChevronRight,
   Clock3,
   Percent,
   Save,
@@ -26,13 +28,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatPercent, valueTone } from "@/lib/formatters";
+import { formatNumber, formatPercent, valueTone } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 
 const periodDateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
   month: "short",
+  year: "numeric",
+});
+
+const monthTitleFormatter = new Intl.DateTimeFormat("es-ES", {
+  month: "long",
   year: "numeric",
 });
 
@@ -58,7 +65,7 @@ const weeklyStatusOptions: {
 
 const weeklyStatusClassName: Record<WeeklyProfitabilityItem["status"], string> =
   {
-    draft: "border-info/35 bg-info-soft text-info",
+    draft: "border-danger/35 bg-danger-soft text-danger",
     closed: "border-positive/35 bg-positive-soft text-positive",
     pending: "border-warning/35 bg-warning-soft text-warning",
   };
@@ -67,6 +74,23 @@ const fieldClassName =
   "h-8 w-full rounded-md border bg-background/45 px-2.5 text-sm text-card-foreground outline-none transition-colors focus:border-primary/70 focus:ring-2 focus:ring-primary/20";
 
 type PeriodSort = "desc" | "asc";
+
+type MonthlyWeeklyReturn = {
+  id: string;
+  periodLabel: string;
+  returnPct: number;
+  weekLabel: string;
+};
+
+type MonthlyProfitabilitySummary = {
+  id: string;
+  finalValue: number;
+  initialValue: number;
+  monthLabel: string;
+  result: number;
+  returnPct: number;
+  weeks: MonthlyWeeklyReturn[];
+};
 
 function formatPeriodDate(date: string) {
   const formatted = periodDateFormatter
@@ -82,6 +106,73 @@ function formatPeriod(startDate: string, endDate: string) {
 
 function formatReturnInput(value: number) {
   return percentInputFormatter.format(value);
+}
+
+function formatMonthTitle(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const formatted = monthTitleFormatter.format(
+    new Date(year, month - 1, 1, 12),
+  );
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+function formatSignedNumber(value: number) {
+  const sign = value > 0 ? "+" : "";
+
+  return `${sign}${formatNumber(value)}`;
+}
+
+function roundMonthlyValue(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function buildMonthlyProfitabilityOverview(
+  weeks: WeeklyProfitabilityItem[],
+): MonthlyProfitabilitySummary[] {
+  const weeksByMonth = new Map<string, WeeklyProfitabilityItem[]>();
+
+  for (const week of weeks) {
+    if (!week.isSaved) {
+      continue;
+    }
+
+    const monthKey = week.endDate.slice(0, 7);
+    const existingWeeks = weeksByMonth.get(monthKey) ?? [];
+    existingWeeks.push(week);
+    weeksByMonth.set(monthKey, existingWeeks);
+  }
+
+  return [...weeksByMonth.entries()]
+    .sort(([leftMonth], [rightMonth]) => rightMonth.localeCompare(leftMonth))
+    .map(([monthKey, monthWeeks]) => {
+      const orderedWeeks = [...monthWeeks].sort((left, right) =>
+        left.endDate.localeCompare(right.endDate),
+      );
+      const initialValue = 100;
+      const finalValue = orderedWeeks.reduce(
+        (value, week) => value * (1 + week.returnPct / 100),
+        initialValue,
+      );
+      const roundedFinalValue = roundMonthlyValue(finalValue);
+      const result = roundMonthlyValue(roundedFinalValue - initialValue);
+      const returnPct = roundMonthlyValue((result / initialValue) * 100);
+
+      return {
+        id: monthKey,
+        finalValue: roundedFinalValue,
+        initialValue,
+        monthLabel: formatMonthTitle(monthKey),
+        result,
+        returnPct,
+        weeks: orderedWeeks.map((week) => ({
+          id: week.id,
+          periodLabel: formatPeriod(week.startDate, week.endDate),
+          returnPct: week.returnPct,
+          weekLabel: week.weekLabel,
+        })),
+      };
+    });
 }
 
 function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
@@ -230,6 +321,273 @@ function MobileWeekRow({
   );
 }
 
+function MonthlyWeeklyBreakdown({
+  summary,
+}: {
+  summary: MonthlyProfitabilitySummary;
+}) {
+  return (
+    <div className="border-t bg-muted/18 px-4 py-4 sm:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-card-foreground">
+            Resultado semanal neto
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {summary.monthLabel}
+          </p>
+        </div>
+        <p
+          className={cn(
+            "text-sm font-semibold tabular-nums",
+            valueTone(summary.returnPct),
+          )}
+        >
+          {formatPercent(summary.returnPct, { sign: true })}
+        </p>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        {summary.weeks.map((week) => (
+          <div
+            key={week.id}
+            className="flex items-center justify-between gap-3 rounded-md border bg-background/35 px-3 py-2"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-card-foreground">
+                {week.weekLabel}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {week.periodLabel}
+              </p>
+            </div>
+            <span
+              className={cn(
+                "shrink-0 text-sm font-semibold tabular-nums",
+                valueTone(week.returnPct),
+              )}
+            >
+              {formatPercent(week.returnPct, { sign: true })}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MobileMonthlyOverviewRow({
+  isExpanded,
+  onToggle,
+  summary,
+}: {
+  isExpanded: boolean;
+  onToggle: () => void;
+  summary: MonthlyProfitabilitySummary;
+}) {
+  return (
+    <div className="border-b last:border-b-0">
+      <button
+        aria-expanded={isExpanded}
+        aria-label={`Detalle semanal de ${summary.monthLabel}`}
+        className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/18"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border bg-background/35 text-muted-foreground">
+          {isExpanded ? (
+            <ChevronDown className="size-4" />
+          ) : (
+            <ChevronRight className="size-4" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-card-foreground">
+                {summary.monthLabel}
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Valor final {formatNumber(summary.finalValue)}
+              </span>
+            </span>
+            <span
+              className={cn(
+                "shrink-0 text-sm font-semibold tabular-nums",
+                valueTone(summary.returnPct),
+              )}
+            >
+              {formatPercent(summary.returnPct, { sign: true })}
+            </span>
+          </span>
+          <span className="mt-3 grid grid-cols-2 gap-2">
+            <span className="rounded-md border bg-background/28 px-3 py-2">
+              <span className="block text-[0.68rem] font-medium uppercase text-muted-foreground">
+                Inicial
+              </span>
+              <span className="mt-1 block text-sm font-semibold tabular-nums text-card-foreground/90">
+                {formatNumber(summary.initialValue)}
+              </span>
+            </span>
+            <span className="rounded-md border bg-background/28 px-3 py-2">
+              <span className="block text-[0.68rem] font-medium uppercase text-muted-foreground">
+                Resultado
+              </span>
+              <span
+                className={cn(
+                  "mt-1 block text-sm font-semibold tabular-nums",
+                  valueTone(summary.result),
+                )}
+              >
+                {formatSignedNumber(summary.result)}
+              </span>
+            </span>
+          </span>
+        </span>
+      </button>
+      {isExpanded ? <MonthlyWeeklyBreakdown summary={summary} /> : null}
+    </div>
+  );
+}
+
+function MonthlyProfitabilityOverview({
+  summaries,
+}: {
+  summaries: MonthlyProfitabilitySummary[];
+}) {
+  const [expandedMonthId, setExpandedMonthId] = useState("__latest__");
+  const activeMonthId =
+    expandedMonthId === "__latest__"
+      ? summaries[0]?.id
+      : expandedMonthId || null;
+
+  function toggleMonth(monthId: string) {
+    setExpandedMonthId((currentMonthId) => {
+      const currentActiveMonthId =
+        currentMonthId === "__latest__" ? summaries[0]?.id : currentMonthId;
+
+      return currentActiveMonthId === monthId ? "" : monthId;
+    });
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="flex-col items-start gap-4 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <CalendarDays className="size-5 shrink-0 text-card-foreground" />
+          <div className="min-w-0">
+            <CardTitle className="text-base font-semibold uppercase">
+              Resumen mensual
+            </CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Base 100 compuesta por las rentabilidades semanales guardadas
+            </p>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {summaries.length} meses en total
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {summaries.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No hay rentabilidades semanales guardadas todavia.
+          </div>
+        ) : null}
+
+        <div className="md:hidden">
+          {summaries.map((summary) => (
+            <MobileMonthlyOverviewRow
+              key={summary.id}
+              isExpanded={activeMonthId === summary.id}
+              onToggle={() => toggleMonth(summary.id)}
+              summary={summary}
+            />
+          ))}
+        </div>
+
+        <Table containerClassName="hidden md:block">
+          <TableHeader className="bg-card/95">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="min-w-44">Mes</TableHead>
+              <TableHead className="min-w-36 text-right">
+                Valor inicial
+              </TableHead>
+              <TableHead className="min-w-36 text-right">Valor final</TableHead>
+              <TableHead className="min-w-40 text-right">
+                Beneficio / perdida
+              </TableHead>
+              <TableHead className="min-w-36 text-right">
+                Rentabilidad
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {summaries.map((summary) => {
+              const isExpanded = activeMonthId === summary.id;
+
+              return (
+                <Fragment key={summary.id}>
+                  <TableRow>
+                    <TableCell className="font-medium text-card-foreground/90">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          aria-expanded={isExpanded}
+                          aria-label={`Detalle semanal de ${summary.monthLabel}`}
+                          className="size-7 rounded-sm"
+                          onClick={() => toggleMonth(summary.id)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown data-icon="inline-start" />
+                          ) : (
+                            <ChevronRight data-icon="inline-start" />
+                          )}
+                        </Button>
+                        <span>{summary.monthLabel}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-card-foreground/86">
+                      {formatNumber(summary.initialValue)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-card-foreground/86">
+                      {formatNumber(summary.finalValue)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        valueTone(summary.result),
+                      )}
+                    >
+                      {formatSignedNumber(summary.result)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        valueTone(summary.returnPct),
+                      )}
+                    >
+                      {formatPercent(summary.returnPct, { sign: true })}
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded ? (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={5} className="p-0">
+                        <MonthlyWeeklyBreakdown summary={summary} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function WeeklyProfitabilityPanel({
   next,
   weeklyError,
@@ -263,13 +621,18 @@ export function WeeklyProfitabilityPanel({
       ),
     [periodSort, weeks],
   );
+  const monthlyOverview = useMemo(
+    () => buildMonthlyProfitabilityOverview(weeks),
+    [weeks],
+  );
 
   function togglePeriodSort() {
     setPeriodSort((currentSort) => (currentSort === "desc" ? "asc" : "desc"));
   }
 
   return (
-    <Card className="overflow-hidden">
+    <div className="grid gap-4">
+      <Card className="overflow-hidden">
       <CardHeader className="border-b p-4 sm:p-5">
         <div className="grid gap-4 xl:grid-cols-[minmax(280px,1fr)_minmax(620px,auto)] xl:items-center">
           <div className="flex min-w-0 items-center gap-3">
@@ -430,6 +793,8 @@ export function WeeklyProfitabilityPanel({
           </TableBody>
         </Table>
       </CardContent>
-    </Card>
+      </Card>
+      <MonthlyProfitabilityOverview summaries={monthlyOverview} />
+    </div>
   );
 }

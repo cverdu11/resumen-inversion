@@ -33,6 +33,7 @@ import {
 } from "@/lib/admin-mock-data";
 import {
   formatCurrency,
+  formatFullDate,
   formatPercent,
   formatShortDate,
   valueTone,
@@ -170,6 +171,7 @@ function MovementActionForm({
           <span className={fieldLabelClassName}>Fecha</span>
           <input
             type="date"
+            lang="es-ES"
             name="movement_date"
             className={compactInputClassName}
             required
@@ -285,6 +287,7 @@ function MovementEditForm({
             <span className={fieldLabelClassName}>Fecha</span>
             <input
               type="date"
+              lang="es-ES"
               name="movement_date"
               className={compactInputClassName}
               defaultValue={movement.date}
@@ -480,7 +483,7 @@ export function InvestorDetailPreview({
                 Datos base
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Inicio {formatShortDate(investor.startDate)}
+                Inicio {formatFullDate(investor.startDate)}
               </p>
             </div>
           </div>
