@@ -654,18 +654,13 @@ export function getAdminOverview(
     (total, investor) => total + investor.profit,
     0,
   );
-  const averageProfitability =
-    investors.length > 0
-      ? investors.reduce(
-          (total, investor) => total + investor.profitabilityPct,
-          0,
-        ) / investors.length
-      : 0;
+  const totalProfitability =
+    totalCapitalInvested > 0 ? (totalProfit / totalCapitalInvested) * 100 : 0;
   return {
     totalInvestors: investors.length,
     totalCapitalInvested,
     totalProfit,
-    averageProfitability,
+    totalProfitability,
     currentWeekProfitability,
   };
 }

@@ -96,12 +96,12 @@ export function AdminDashboard({
           : ("negative" as const),
     },
     {
-      label: "Rentabilidad media",
-      value: formatPercent(overview.averageProfitability, { sign: true }),
-      helper: "Media simple por inversor",
+      label: "Rentabilidad total",
+      value: formatPercent(overview.totalProfitability, { sign: true }),
+      helper: "Beneficio sobre capital neto",
       icon: BarChart3,
       tone:
-        overview.averageProfitability >= 0
+        overview.totalProfitability >= 0
           ? ("positive" as const)
           : ("negative" as const),
     },

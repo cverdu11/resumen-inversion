@@ -374,7 +374,7 @@ export function InvestorTable({
         </div>
         <Table
           containerClassName="hidden lg:block"
-          className="min-w-[1164px] [&_td]:px-3 [&_th]:px-3"
+          className="min-w-[1284px] [&_td]:px-3 [&_th]:px-3"
         >
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur">
             <TableRow className="hover:bg-transparent">
@@ -395,6 +395,9 @@ export function InvestorTable({
               <TableHead className="min-w-[105px] text-right">
                 Beneficio
               </TableHead>
+              <TableHead className="min-w-[120px] text-right">
+                Rentabilidad
+              </TableHead>
               <TableHead className="min-w-[95px]">Estado</TableHead>
               <TableHead className="min-w-[175px]">Ruta inversor</TableHead>
             </TableRow>
@@ -403,7 +406,7 @@ export function InvestorTable({
             {investors.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={10}
                   className="h-28 text-center text-sm text-muted-foreground"
                 >
                   No hay inversores registrados todavia.
@@ -499,6 +502,16 @@ export function InvestorTable({
                     >
                       {formatCurrency(investor.profit, { sign: true })}
                     </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        valueTone(investor.profitabilityPct),
+                      )}
+                    >
+                      {formatPercent(investor.profitabilityPct, {
+                        sign: true,
+                      })}
+                    </TableCell>
                     <TableCell>
                       <InvestorStatusPill status={investor.status} />
                     </TableCell>
@@ -510,7 +523,7 @@ export function InvestorTable({
                   </TableRow>
                   {editingInvestorSlug === investor.slug ? (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={9} className="bg-background/16 p-4">
+                      <TableCell colSpan={10} className="bg-background/16 p-4">
                         <InvestorEditPanel investor={investor} />
                       </TableCell>
                     </TableRow>
