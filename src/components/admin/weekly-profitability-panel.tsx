@@ -56,6 +56,13 @@ const weeklyStatusOptions: {
   { value: "pending", label: "Pendiente" },
 ];
 
+const weeklyStatusClassName: Record<WeeklyProfitabilityItem["status"], string> =
+  {
+    draft: "border-info/35 bg-info-soft text-info",
+    closed: "border-positive/35 bg-positive-soft text-positive",
+    pending: "border-warning/35 bg-warning-soft text-warning",
+  };
+
 const fieldClassName =
   "h-8 w-full rounded-md border bg-background/45 px-2.5 text-sm text-card-foreground outline-none transition-colors focus:border-primary/70 focus:ring-2 focus:ring-primary/20";
 
@@ -90,6 +97,44 @@ function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
       <Save className="size-3.5" data-icon="inline-start" />
       {pending ? "Guardando" : "Guardar"}
     </Button>
+  );
+}
+
+function WeeklyStatusSelect({
+  className,
+  formId,
+  status,
+}: {
+  className?: string;
+  formId?: string;
+  status: WeeklyProfitabilityItem["status"];
+}) {
+  const [selectedStatus, setSelectedStatus] =
+    useState<WeeklyProfitabilityItem["status"]>(status);
+
+  return (
+    <select
+      className={cn(
+        fieldClassName,
+        "font-semibold uppercase",
+        weeklyStatusClassName[selectedStatus],
+        className ?? "w-32 text-xs",
+      )}
+      form={formId}
+      name="status"
+      onChange={(event) =>
+        setSelectedStatus(
+          event.target.value as WeeklyProfitabilityItem["status"],
+        )
+      }
+      value={selectedStatus}
+    >
+      {weeklyStatusOptions.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -150,46 +195,13 @@ function WeeklyReturnForm({
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Estado
           </span>
-          <select
-            className={fieldClassName}
-            defaultValue={week.status}
-            name="status"
-          >
-            {weeklyStatusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <WeeklyStatusSelect className="w-full text-sm" status={week.status} />
         </label>
       ) : includeHiddenStatus ? (
         <input name="status" type="hidden" value={week.status} />
       ) : null}
       <SaveWeeklyButton compact={compact} />
     </form>
-  );
-}
-
-function WeeklyStatusSelect({
-  formId,
-  status,
-}: {
-  formId: string;
-  status: WeeklyProfitabilityItem["status"];
-}) {
-  return (
-    <select
-      className={cn(fieldClassName, "w-32 text-xs font-semibold uppercase")}
-      defaultValue={status}
-      form={formId}
-      name="status"
-    >
-      {weeklyStatusOptions.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
   );
 }
 
