@@ -152,6 +152,15 @@ function sortWeeksByPeriod(
   );
 }
 
+function parseOpenMonthIds(openMonths?: string) {
+  const monthIds = (openMonths ?? "")
+    .split(",")
+    .map((monthId) => monthId.trim())
+    .filter((monthId) => /^\d{4}-\d{2}$/.test(monthId));
+
+  return monthIds.length > 0 ? monthIds : null;
+}
+
 function buildMonthlyProfitabilityOverview(
   weeks: WeeklyProfitabilityItem[],
   periodSort: PeriodSort,
@@ -216,11 +225,9 @@ function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
 
 function WeeklyStatusSelect({
   className,
-  formId,
   status,
 }: {
   className?: string;
-  formId?: string;
   status: WeeklyProfitabilityItem["status"];
 }) {
   const [selectedStatus, setSelectedStatus] =
@@ -234,7 +241,6 @@ function WeeklyStatusSelect({
         weeklyStatusClassName[selectedStatus],
         className ?? "w-32 text-xs",
       )}
-      form={formId}
       name="status"
       onChange={(event) =>
         setSelectedStatus(
@@ -257,38 +263,34 @@ function WeeklyStatusSelect({
   );
 }
 
-function WeeklyReturnForm({
-  compact = false,
-  formId,
-  includeHiddenStatus = true,
+function WeeklyFormHiddenFields({
   next,
-  showStatus = false,
-  scope = "inline",
+  openMonthsValue,
   week,
 }: {
-  compact?: boolean;
-  formId?: string;
-  includeHiddenStatus?: boolean;
   next: string;
-  showStatus?: boolean;
-  scope?: "desktop" | "mobile" | "inline";
+  openMonthsValue: string;
   week: WeeklyProfitabilityItem;
 }) {
-  const inputId = `return-pct-${scope}-${week.id}`;
-
   return (
-    <form
-      action={saveWeeklyProfitability}
-      className={cn(
-        compact
-          ? "grid grid-cols-[minmax(0,7rem)_auto] items-center justify-end gap-2"
-          : "mt-3 grid gap-3",
-      )}
-      id={formId}
-    >
+    <>
       <input name="next" type="hidden" value={next} />
+      <input name="open_months" type="hidden" value={openMonthsValue} />
       <input name="week_start" type="hidden" value={week.startDate} />
       <input name="week_end" type="hidden" value={week.endDate} />
+    </>
+  );
+}
+
+function WeeklyReturnInput({
+  inputId,
+  week,
+}: {
+  inputId: string;
+  week: WeeklyProfitabilityItem;
+}) {
+  return (
+    <>
       <label className="sr-only" htmlFor={inputId}>
         Rentabilidad de {week.weekLabel}
       </label>
@@ -309,6 +311,47 @@ function WeeklyReturnForm({
           %
         </span>
       </div>
+    </>
+  );
+}
+
+function WeeklyReturnForm({
+  compact = false,
+  formId,
+  includeHiddenStatus = true,
+  next,
+  openMonthsValue,
+  showStatus = false,
+  scope = "inline",
+  week,
+}: {
+  compact?: boolean;
+  formId?: string;
+  includeHiddenStatus?: boolean;
+  next: string;
+  openMonthsValue: string;
+  showStatus?: boolean;
+  scope?: "desktop" | "mobile" | "inline";
+  week: WeeklyProfitabilityItem;
+}) {
+  const inputId = `return-pct-${scope}-${week.id}`;
+
+  return (
+    <form
+      action={saveWeeklyProfitability}
+      className={cn(
+        compact
+          ? "grid grid-cols-[minmax(0,7rem)_auto] items-center justify-end gap-2"
+          : "mt-3 grid gap-3",
+      )}
+      id={formId}
+    >
+      <WeeklyFormHiddenFields
+        next={next}
+        openMonthsValue={openMonthsValue}
+        week={week}
+      />
+      <WeeklyReturnInput inputId={inputId} week={week} />
       {showStatus ? (
         <label className="grid gap-1.5">
           <span className="text-xs font-semibold uppercase text-muted-foreground">
@@ -320,6 +363,42 @@ function WeeklyReturnForm({
         <input name="status" type="hidden" value={week.status} />
       ) : null}
       <SaveWeeklyButton compact={compact} />
+    </form>
+  );
+}
+
+function DesktopWeeklyReturnForm({
+  next,
+  openMonthsValue,
+  summaryId,
+  week,
+}: {
+  next: string;
+  openMonthsValue: string;
+  summaryId: string;
+  week: WeeklyProfitabilityItem;
+}) {
+  const inputId = `return-pct-desktop-${summaryId}-${week.id}`;
+
+  return (
+    <form
+      action={saveWeeklyProfitability}
+      className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(14rem,auto)_minmax(9rem,auto)] items-center gap-4 border-b px-4 py-3 last:border-b-0"
+    >
+      <WeeklyFormHiddenFields
+        next={next}
+        openMonthsValue={openMonthsValue}
+        week={week}
+      />
+      <div className="font-medium text-card-foreground">{week.weekLabel}</div>
+      <div className="tabular-nums text-card-foreground/82">
+        {formatPeriod(week.startDate, week.endDate)}
+      </div>
+      <div className="grid grid-cols-[minmax(0,7rem)_auto] items-center justify-end gap-2">
+        <WeeklyReturnInput inputId={inputId} week={week} />
+        <SaveWeeklyButton compact />
+      </div>
+      <WeeklyStatusSelect status={week.status} />
     </form>
   );
 }
@@ -343,9 +422,11 @@ function WeekStatusBadge({ status }: { status: WeeklyProfitabilityItem["status"]
 
 function MobileWeekEditor({
   next,
+  openMonthsValue,
   week,
 }: {
   next: string;
+  openMonthsValue: string;
   week: WeeklyProfitabilityItem;
 }) {
   return (
@@ -361,16 +442,24 @@ function MobileWeekEditor({
         </div>
         <WeekStatusBadge status={week.status} />
       </div>
-      <WeeklyReturnForm next={next} scope="mobile" showStatus week={week} />
+      <WeeklyReturnForm
+        next={next}
+        openMonthsValue={openMonthsValue}
+        scope="mobile"
+        showStatus
+        week={week}
+      />
     </div>
   );
 }
 
 function MonthChildWeeks({
   next,
+  openMonthsValue,
   summary,
 }: {
   next: string;
+  openMonthsValue: string;
   summary: MonthlyProfitabilitySummary;
 }) {
   return (
@@ -383,38 +472,26 @@ function MonthChildWeeks({
             <span className="text-right">Rentabilidad</span>
             <span>Estado</span>
           </div>
-          {summary.weeks.map((week) => {
-            const formId = `weekly-form-desktop-${summary.id}-${week.id}`;
-
-            return (
-              <div
-                className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(14rem,auto)_minmax(9rem,auto)] items-center gap-4 border-b px-4 py-3 last:border-b-0"
-                key={week.id}
-              >
-                <div className="font-medium text-card-foreground">
-                  {week.weekLabel}
-                </div>
-                <div className="tabular-nums text-card-foreground/82">
-                  {formatPeriod(week.startDate, week.endDate)}
-                </div>
-                <WeeklyReturnForm
-                  compact
-                  formId={formId}
-                  includeHiddenStatus={false}
-                  next={next}
-                  scope="desktop"
-                  week={week}
-                />
-                <WeeklyStatusSelect formId={formId} status={week.status} />
-              </div>
-            );
-          })}
+          {summary.weeks.map((week) => (
+            <DesktopWeeklyReturnForm
+              key={week.id}
+              next={next}
+              openMonthsValue={openMonthsValue}
+              summaryId={summary.id}
+              week={week}
+            />
+          ))}
         </div>
       </div>
 
       <div className="md:hidden">
         {summary.weeks.map((week) => (
-          <MobileWeekEditor key={week.id} next={next} week={week} />
+          <MobileWeekEditor
+            key={week.id}
+            next={next}
+            openMonthsValue={openMonthsValue}
+            week={week}
+          />
         ))}
       </div>
     </div>
@@ -424,11 +501,13 @@ function MonthChildWeeks({
 function MobileMonthRow({
   isExpanded,
   next,
+  openMonthsValue,
   onToggle,
   summary,
 }: {
   isExpanded: boolean;
   next: string;
+  openMonthsValue: string;
   onToggle: () => void;
   summary: MonthlyProfitabilitySummary;
 }) {
@@ -501,18 +580,26 @@ function MobileMonthRow({
           </span>
         </span>
       </button>
-      {isExpanded ? <MonthChildWeeks next={next} summary={summary} /> : null}
+      {isExpanded ? (
+        <MonthChildWeeks
+          next={next}
+          openMonthsValue={openMonthsValue}
+          summary={summary}
+        />
+      ) : null}
     </div>
   );
 }
 
 export function WeeklyProfitabilityPanel({
   next,
+  openMonths,
   weeklyError,
   weeklyStatus,
   weeks,
 }: {
   next: string;
+  openMonths?: string;
   weeklyError?: string;
   weeklyStatus?: string;
   weeks: WeeklyProfitabilityItem[];
@@ -538,10 +625,21 @@ export function WeeklyProfitabilityPanel({
     () => buildMonthlyProfitabilityOverview(weeks, periodSort),
     [periodSort, weeks],
   );
+  const queryOpenMonthIds = useMemo(
+    () => parseOpenMonthIds(openMonths),
+    [openMonths],
+  );
   const defaultOpenMonthId = monthlyOverview[0]?.id;
-  const openMonthIds =
+  const availableMonthIds = useMemo(
+    () => new Set(monthlyOverview.map((summary) => summary.id)),
+    [monthlyOverview],
+  );
+  const openMonthIds = (
     expandedMonthIds ??
-    (defaultOpenMonthId !== undefined ? [defaultOpenMonthId] : []);
+    queryOpenMonthIds ??
+    (defaultOpenMonthId !== undefined ? [defaultOpenMonthId] : [])
+  ).filter((monthId) => availableMonthIds.has(monthId));
+  const openMonthsValue = openMonthIds.join(",");
 
   function toggleMonth(monthId: string) {
     setExpandedMonthIds((currentMonthIds) => {
@@ -671,6 +769,7 @@ export function WeeklyProfitabilityPanel({
               isExpanded={openMonthIds.includes(summary.id)}
               key={summary.id}
               next={next}
+              openMonthsValue={openMonthsValue}
               onToggle={() => toggleMonth(summary.id)}
               summary={summary}
             />
@@ -755,7 +854,11 @@ export function WeeklyProfitabilityPanel({
                   {isExpanded ? (
                     <TableRow className="hover:bg-transparent">
                       <TableCell className="p-0" colSpan={6}>
-                        <MonthChildWeeks next={next} summary={summary} />
+                        <MonthChildWeeks
+                          next={next}
+                          openMonthsValue={openMonthsValue}
+                          summary={summary}
+                        />
                       </TableCell>
                     </TableRow>
                   ) : null}

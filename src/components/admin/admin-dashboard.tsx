@@ -32,6 +32,7 @@ export function AdminDashboard({
   activeTab,
   databaseInvestors,
   investorError,
+  openMonths,
   passwordError,
   passwordStatus,
   selectedInvestorSlug,
@@ -43,6 +44,7 @@ export function AdminDashboard({
   activeTab: AdminTab;
   databaseInvestors: MockInvestor[];
   investorError?: string;
+  openMonths?: string;
   passwordError?: string;
   passwordStatus?: string;
   selectedInvestorSlug?: string;
@@ -232,6 +234,7 @@ export function AdminDashboard({
           <section>
             <WeeklyProfitabilityPanel
               next={currentAdminPath}
+              openMonths={openMonths}
               weeklyError={weeklyError}
               weeklyStatus={weeklyStatus}
               weeks={weeklyProfitability}

@@ -22,6 +22,7 @@ type AdminPageProps = {
     password_error?: string;
     password_status?: string;
     tab?: string;
+    open_months?: string;
     weekly_error?: string;
     weekly_status?: string;
   }>;
@@ -290,6 +291,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       investorError={params?.investor_error}
       passwordError={params?.password_error}
       passwordStatus={params?.password_status}
+      openMonths={params?.open_months}
       selectedInvestorSlug={params?.investor}
       userEmail={user.email}
       weeklyError={params?.weekly_error}

@@ -38,12 +38,30 @@ function redirectWithPasswordResult(next: string, result: string): never {
   redirect(`${pathname}?${params.toString()}`);
 }
 
-function redirectWithWeeklyResult(next: string, result: string): never {
+function getSafeOpenMonths(value: FormDataEntryValue | null) {
+  return String(value ?? "")
+    .split(",")
+    .map((monthId) => monthId.trim())
+    .filter((monthId) => /^\d{4}-\d{2}$/.test(monthId))
+    .join(",");
+}
+
+function redirectWithWeeklyResult(
+  next: string,
+  result: string,
+  openMonths?: string,
+): never {
   const [pathname, query = ""] = next.split("?");
   const params = new URLSearchParams(query);
 
   params.delete("weekly_status");
   params.delete("weekly_error");
+  params.delete("open_months");
+  params.set("tab", "rentabilidad");
+
+  if (openMonths) {
+    params.set("open_months", openMonths);
+  }
 
   if (result === "saved") {
     params.set("weekly_status", "saved");
@@ -522,6 +540,7 @@ export async function changeAdminPassword(formData: FormData) {
 
 export async function saveWeeklyProfitability(formData: FormData) {
   const next = getSafeNext(formData.get("next"));
+  const openMonths = getSafeOpenMonths(formData.get("open_months"));
   const weekStart = String(formData.get("week_start") ?? "");
   const weekEnd = String(formData.get("week_end") ?? "");
   const returnPct = parsePercentageInput(String(formData.get("return_pct") ?? ""));
@@ -539,7 +558,7 @@ export async function saveWeeklyProfitability(formData: FormData) {
     !Number.isFinite(returnPct) ||
     Math.abs(returnPct) > 100
   ) {
-    redirectWithWeeklyResult(next, "invalid");
+    redirectWithWeeklyResult(next, "invalid", openMonths);
   }
 
   const { supabase } = await getAuthorizedTraderClient();
@@ -555,8 +574,8 @@ export async function saveWeeklyProfitability(formData: FormData) {
   );
 
   if (error) {
-    redirectWithWeeklyResult(next, "save");
+    redirectWithWeeklyResult(next, "save", openMonths);
   }
 
-  redirectWithWeeklyResult(next, "saved");
+  redirectWithWeeklyResult(next, "saved", openMonths);
 }
