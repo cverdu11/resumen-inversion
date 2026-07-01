@@ -5,11 +5,17 @@ import {
   Coins,
   History,
   MinusCircle,
+  Pencil,
   PlusCircle,
+  Save,
 } from "lucide-react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { addInvestorMovement } from "@/app/admin/actions";
+import {
+  addInvestorMovement,
+  updateInvestorMovement,
+} from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,6 +26,7 @@ import {
 import {
   getInvestorFullName,
   getNetCapital,
+  type InvestorMovement,
   type MockInvestor,
 } from "@/lib/admin-mock-data";
 import {
@@ -73,6 +80,17 @@ function MovementSubmitButton({ isContribution }: { isContribution: boolean }) {
         : isContribution
           ? "Guardar aportación"
           : "Guardar retirada"}
+    </Button>
+  );
+}
+
+function MovementUpdateButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" size="sm" disabled={pending}>
+      <Save data-icon="inline-start" />
+      {pending ? "Guardando..." : "Guardar movimiento"}
     </Button>
   );
 }
@@ -158,7 +176,92 @@ function formatMovementNote(note: string) {
   return note.replaceAll("Aportacion", "Aportación");
 }
 
+function MovementEditForm({
+  investorSlug,
+  movement,
+  onCancel,
+}: {
+  investorSlug: string;
+  movement: InvestorMovement;
+  onCancel: () => void;
+}) {
+  if (!movement.sourceId || movement.sourceType === "initial_contribution") {
+    return null;
+  }
+
+  return (
+    <form
+      action={updateInvestorMovement}
+      className="mt-3 grid gap-3 rounded-md border bg-background/28 p-3"
+    >
+      <input type="hidden" name="slug" value={investorSlug} />
+      <input type="hidden" name="movement_id" value={movement.sourceId} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1.5">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            Tipo
+          </span>
+          <select
+            name="movement_type"
+            className={inputClassName}
+            defaultValue={movement.type}
+          >
+            <option value="contribution">Aportación</option>
+            <option value="withdrawal">Retirada</option>
+          </select>
+        </label>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            Fecha
+          </span>
+          <input
+            type="date"
+            name="movement_date"
+            className={inputClassName}
+            defaultValue={movement.date}
+            required
+          />
+        </label>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            Importe
+          </span>
+          <input
+            name="amount"
+            type="text"
+            inputMode="decimal"
+            className={cn(inputClassName, "tabular-nums")}
+            defaultValue={String(movement.amount)}
+            required
+          />
+        </label>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            Concepto
+          </span>
+          <input
+            name="note"
+            type="text"
+            className={inputClassName}
+            defaultValue={formatMovementNote(movement.note)}
+          />
+        </label>
+      </div>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <MovementUpdateButton />
+      </div>
+    </form>
+  );
+}
+
 function MovementsSection({ investor }: { investor: MockInvestor }) {
+  const [editingMovementId, setEditingMovementId] = useState<string | null>(
+    null,
+  );
+
   return (
     <section className="border-t px-5 py-4">
       <div className="flex items-center gap-3">
@@ -179,38 +282,68 @@ function MovementsSection({ investor }: { investor: MockInvestor }) {
           const isContribution = movement.type === "contribution";
           const Icon = isContribution ? PlusCircle : MinusCircle;
           const amount = isContribution ? movement.amount : -movement.amount;
+          const canEdit =
+            Boolean(movement.sourceId) &&
+            movement.sourceType !== "initial_contribution";
+          const isEditing = editingMovementId === movement.id;
 
           return (
-            <div
-              key={movement.id}
-              className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"
-            >
-              <span
-                className={cn(
-                  "grid size-8 place-items-center rounded-md border",
-                  isContribution
-                    ? "bg-positive-soft text-positive"
-                    : "bg-danger-soft text-danger",
-                )}
+            <div key={movement.id}>
+              <div
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3"
               >
-                <Icon className="size-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-card-foreground">
-                  {formatMovementNote(movement.note)}
+                <span
+                  className={cn(
+                    "grid size-8 place-items-center rounded-md border",
+                    isContribution
+                      ? "bg-positive-soft text-positive"
+                      : "bg-danger-soft text-danger",
+                  )}
+                >
+                  <Icon className="size-4" />
                 </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {formatShortDate(movement.date)}
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-card-foreground">
+                    {formatMovementNote(movement.note)}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {formatShortDate(movement.date)}
+                  </span>
                 </span>
-              </span>
-              <span
-                className={cn(
-                  "text-sm font-semibold tabular-nums",
-                  valueTone(amount),
+                <span
+                  className={cn(
+                    "text-sm font-semibold tabular-nums",
+                    valueTone(amount),
+                  )}
+                >
+                  {formatCurrency(amount, { sign: true })}
+                </span>
+                {canEdit ? (
+                  <Button
+                    type="button"
+                    variant={isEditing ? "secondary" : "ghost"}
+                    size="icon"
+                    className="size-8 rounded-sm"
+                    aria-label={`Editar ${formatMovementNote(movement.note)}`}
+                    onClick={() =>
+                      setEditingMovementId((currentId) =>
+                        currentId === movement.id ? null : movement.id,
+                      )
+                    }
+                  >
+                    <Pencil data-icon="inline-start" />
+                  </Button>
+                ) : (
+                  <span className="size-8" />
                 )}
-              >
-                {formatCurrency(amount, { sign: true })}
-              </span>
+              </div>
+              {isEditing ? (
+                <MovementEditForm
+                  investorSlug={investor.slug}
+                  movement={movement}
+                  onCancel={() => setEditingMovementId(null)}
+                />
+              ) : null}
             </div>
           );
         })}

@@ -2,6 +2,8 @@ export type InvestorStatus = "active" | "watch" | "pending" | "paused";
 
 export type InvestorMovement = {
   id: string;
+  sourceId?: number;
+  sourceType?: "initial_contribution" | "contribution" | "withdrawal";
   date: string;
   type: "contribution" | "withdrawal";
   amount: number;

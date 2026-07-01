@@ -129,6 +129,8 @@ function mapDatabaseInvestors(
       status: toInvestorStatus(investor.status),
       movements: investorMovements.map((movement) => ({
         id: `mov-db-${movement.id}`,
+        sourceId: movement.id,
+        sourceType: movement.movement_type,
         date: movement.movement_date,
         type:
           movement.movement_type === "withdrawal"

@@ -302,9 +302,19 @@ export async function addInvestorMovement(formData: FormData) {
   const note = String(formData.get("note") ?? "").trim();
   const rawType = String(formData.get("movement_type") ?? "");
   const movementType =
-    rawType === "withdrawal" ? "withdrawal" : rawType === "contribution" ? "contribution" : "";
+    rawType === "withdrawal"
+      ? "withdrawal"
+      : rawType === "contribution"
+        ? "contribution"
+        : "";
 
-  if (!slug || !movementDate || !movementType || !Number.isFinite(amount) || amount <= 0) {
+  if (
+    !slug ||
+    !movementDate ||
+    !movementType ||
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
     redirectWithInvestorError("movement");
   }
 
@@ -315,8 +325,62 @@ export async function addInvestorMovement(formData: FormData) {
     movement_type: movementType,
     movement_date: movementDate,
     amount,
-    note: note || (movementType === "contribution" ? "Aportacion parcial" : "Retirada parcial"),
+    note:
+      note ||
+      (movementType === "contribution"
+        ? "Aportacion parcial"
+        : "Retirada parcial"),
   });
+
+  if (error) {
+    redirectWithInvestorError("movement");
+  }
+
+  redirect(`/admin?tab=panel&investor=${slug}`);
+}
+
+export async function updateInvestorMovement(formData: FormData) {
+  const slug = String(formData.get("slug") ?? "").trim();
+  const movementId = Number(formData.get("movement_id"));
+  const movementDate = String(formData.get("movement_date") ?? "");
+  const amount = parseMoneyInput(String(formData.get("amount") ?? ""));
+  const note = String(formData.get("note") ?? "").trim();
+  const rawType = String(formData.get("movement_type") ?? "");
+  const movementType =
+    rawType === "withdrawal"
+      ? "withdrawal"
+      : rawType === "contribution"
+        ? "contribution"
+        : "";
+
+  if (
+    !slug ||
+    !Number.isInteger(movementId) ||
+    !movementDate ||
+    !movementType ||
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
+    redirectWithInvestorError("movement");
+  }
+
+  const { supabase } = await getAuthorizedTraderClient();
+  const investor = await getInvestorBySlug(supabase, slug);
+  const { error } = await supabase
+    .from("investor_movements")
+    .update({
+      movement_type: movementType,
+      movement_date: movementDate,
+      amount,
+      note:
+        note ||
+        (movementType === "contribution"
+          ? "Aportacion parcial"
+          : "Retirada parcial"),
+    })
+    .eq("id", movementId)
+    .eq("investor_id", investor.id)
+    .neq("movement_type", "initial_contribution");
 
   if (error) {
     redirectWithInvestorError("movement");
