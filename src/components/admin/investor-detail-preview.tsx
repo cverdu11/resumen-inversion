@@ -1,14 +1,15 @@
 "use client";
 
 import {
-  ArrowUpRight,
   CalendarDays,
   Coins,
   History,
   MinusCircle,
   PlusCircle,
 } from "lucide-react";
+import { useFormStatus } from "react-dom";
 
+import { addInvestorMovement } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,7 +35,7 @@ import { InvestorStatusPill } from "./investor-table";
 type MovementActionType = "contribution" | "withdrawal";
 
 const inputClassName =
-  "h-9 rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
+  "h-9 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
 
 function DetailMetric({
   label,
@@ -62,9 +63,32 @@ function DetailMetric({
   );
 }
 
-function MovementActionForm({ type }: { type: MovementActionType }) {
+function MovementSubmitButton({ isContribution }: { isContribution: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" size="sm" disabled={pending}>
+      {pending
+        ? "Guardando..."
+        : isContribution
+          ? "Guardar aportación"
+          : "Guardar retirada"}
+    </Button>
+  );
+}
+
+function MovementActionForm({
+  investorSlug,
+  type,
+}: {
+  investorSlug: string;
+  type: MovementActionType;
+}) {
   const isContribution = type === "contribution";
   const Icon = isContribution ? PlusCircle : MinusCircle;
+  const defaultNote = isContribution
+    ? "Aportación parcial"
+    : "Retirada parcial";
 
   return (
     <details className="group rounded-lg border bg-background/28">
@@ -86,24 +110,31 @@ function MovementActionForm({ type }: { type: MovementActionType }) {
           +
         </span>
       </summary>
-      <div className="grid gap-3 border-t p-3">
+      <form action={addInvestorMovement} className="grid gap-3 border-t p-3">
+        <input type="hidden" name="slug" value={investorSlug} />
+        <input type="hidden" name="movement_type" value={type} />
         <label className="grid gap-1.5">
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Fecha
           </span>
-          <input type="date" defaultValue="2026-06-30" className={inputClassName} />
+          <input
+            type="date"
+            name="movement_date"
+            className={inputClassName}
+            required
+          />
         </label>
         <label className="grid gap-1.5">
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Importe
           </span>
           <input
-            type="number"
-            min="0"
-            step="0.01"
+            name="amount"
+            type="text"
             inputMode="decimal"
             placeholder="0,00"
             className={cn(inputClassName, "tabular-nums")}
+            required
           />
         </label>
         <label className="grid gap-1.5">
@@ -111,23 +142,81 @@ function MovementActionForm({ type }: { type: MovementActionType }) {
             Concepto
           </span>
           <input
+            name="note"
             type="text"
-            defaultValue={
-              isContribution ? "Aportación parcial" : "Retirada parcial"
-            }
+            defaultValue={defaultNote}
             className={inputClassName}
           />
         </label>
-        <Button type="button" size="sm">
-          {isContribution ? "Guardar aportación" : "Guardar retirada"}
-        </Button>
-      </div>
+        <MovementSubmitButton isContribution={isContribution} />
+      </form>
     </details>
   );
 }
 
 function formatMovementNote(note: string) {
   return note.replaceAll("Aportacion", "Aportación");
+}
+
+function MovementsSection({ investor }: { investor: MockInvestor }) {
+  return (
+    <section className="border-t px-5 py-4">
+      <div className="flex items-center gap-3">
+        <Coins className="size-5 text-muted-foreground" />
+        <h2 className="text-sm font-semibold uppercase text-card-foreground">
+          Movimientos
+        </h2>
+      </div>
+      <div className="mt-4 grid gap-2">
+        <MovementActionForm
+          investorSlug={investor.slug}
+          type="contribution"
+        />
+        <MovementActionForm investorSlug={investor.slug} type="withdrawal" />
+      </div>
+      <div className="mt-4 flex flex-col gap-3">
+        {investor.movements.map((movement) => {
+          const isContribution = movement.type === "contribution";
+          const Icon = isContribution ? PlusCircle : MinusCircle;
+          const amount = isContribution ? movement.amount : -movement.amount;
+
+          return (
+            <div
+              key={movement.id}
+              className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"
+            >
+              <span
+                className={cn(
+                  "grid size-8 place-items-center rounded-md border",
+                  isContribution
+                    ? "bg-positive-soft text-positive"
+                    : "bg-danger-soft text-danger",
+                )}
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-card-foreground">
+                  {formatMovementNote(movement.note)}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {formatShortDate(movement.date)}
+                </span>
+              </span>
+              <span
+                className={cn(
+                  "text-sm font-semibold tabular-nums",
+                  valueTone(amount),
+                )}
+              >
+                {formatCurrency(amount, { sign: true })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 export function InvestorDetailPreview({
@@ -139,24 +228,10 @@ export function InvestorDetailPreview({
     <Card className="overflow-hidden 2xl:sticky 2xl:top-6">
       <CardHeader className="border-b p-5">
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <CardTitle className="truncate text-base font-semibold uppercase">
-              {getInvestorFullName(investor)}
-            </CardTitle>
-            <p className="mt-2 truncate text-sm text-muted-foreground">
-              /investor/{investor.slug}
-            </p>
-          </div>
+          <CardTitle className="min-w-0 truncate text-base font-semibold uppercase">
+            {getInvestorFullName(investor)}
+          </CardTitle>
           <InvestorStatusPill status={investor.status} />
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm">
-            <ArrowUpRight data-icon="inline-start" />
-            Abrir resumen
-          </Button>
-          <Button variant="ghost" size="sm">
-            Editar datos
-          </Button>
         </div>
       </CardHeader>
 
@@ -181,6 +256,8 @@ export function InvestorDetailPreview({
             tone={valueTone(investor.profitabilityPct)}
           />
         </div>
+
+        <MovementsSection investor={investor} />
 
         <section className="border-t px-5 py-4">
           <div className="flex items-center gap-3">
@@ -219,60 +296,6 @@ export function InvestorDetailPreview({
                   : "-"}
               </span>
             </div>
-          </div>
-        </section>
-
-        <section className="border-t px-5 py-4">
-          <div className="flex items-center gap-3">
-            <Coins className="size-5 text-muted-foreground" />
-            <h2 className="text-sm font-semibold uppercase text-card-foreground">
-              Movimientos
-            </h2>
-          </div>
-          <div className="mt-4 grid gap-2">
-            <MovementActionForm type="contribution" />
-            <MovementActionForm type="withdrawal" />
-          </div>
-          <div className="mt-4 flex flex-col gap-3">
-            {investor.movements.map((movement) => {
-              const isContribution = movement.type === "contribution";
-              const Icon = isContribution ? PlusCircle : MinusCircle;
-              const amount = isContribution ? movement.amount : -movement.amount;
-
-              return (
-                <div
-                  key={movement.id}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"
-                >
-                  <span
-                    className={cn(
-                      "grid size-8 place-items-center rounded-md border",
-                      isContribution
-                        ? "bg-positive-soft text-positive"
-                        : "bg-danger-soft text-danger",
-                    )}
-                  >
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-card-foreground">
-                      {formatMovementNote(movement.note)}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      {formatShortDate(movement.date)}
-                    </span>
-                  </span>
-                  <span
-                    className={cn(
-                      "text-sm font-semibold tabular-nums",
-                      valueTone(amount),
-                    )}
-                  >
-                    {formatCurrency(amount, { sign: true })}
-                  </span>
-                </div>
-              );
-            })}
           </div>
         </section>
 

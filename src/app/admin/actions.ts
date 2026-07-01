@@ -106,14 +106,17 @@ function redirectWithInvestorError(result: string): never {
 async function getUniqueInvestorSlug(
   supabase: Awaited<ReturnType<typeof createClient>>,
   baseSlug: string,
+  currentInvestorId?: number,
 ) {
   const { data } = await supabase
     .from("investors")
-    .select("slug")
+    .select("id, slug")
     .like("slug", `${baseSlug}%`);
 
   const usedSlugs = new Set(
-    (data ?? []).map((investor) => String(investor.slug)),
+    (data ?? [])
+      .filter((investor) => Number(investor.id) !== currentInvestorId)
+      .map((investor) => String(investor.slug)),
   );
   let slug = baseSlug;
   let suffix = 2;
@@ -124,6 +127,23 @@ async function getUniqueInvestorSlug(
   }
 
   return slug;
+}
+
+async function getInvestorBySlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  slug: string,
+) {
+  const { data, error } = await supabase
+    .from("investors")
+    .select("id, slug")
+    .eq("slug", slug)
+    .single();
+
+  if (error || !data) {
+    redirectWithInvestorError("not_found");
+  }
+
+  return data;
 }
 
 export async function createInvestor(formData: FormData) {
@@ -186,6 +206,123 @@ export async function createInvestor(formData: FormData) {
   }
 
   redirect(`/admin?tab=panel&investor=${investor.slug}`);
+}
+
+export async function updateInvestor(formData: FormData) {
+  const currentSlug = String(formData.get("current_slug") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const surname = String(formData.get("surname") ?? "").trim();
+  const startDate = String(formData.get("start_date") ?? "");
+  const initialContribution = parseMoneyInput(
+    String(formData.get("initial_contribution") ?? ""),
+  );
+  const rawStatus = String(formData.get("status") ?? "active");
+  const status = validInvestorStatuses.includes(rawStatus)
+    ? rawStatus
+    : "active";
+
+  if (
+    !currentSlug ||
+    !name ||
+    !surname ||
+    !startDate ||
+    !Number.isFinite(initialContribution) ||
+    initialContribution <= 0
+  ) {
+    redirectWithInvestorError("missing");
+  }
+
+  const { supabase } = await getAuthorizedTraderClient();
+  const investor = await getInvestorBySlug(supabase, currentSlug);
+  const nextSlug = await getUniqueInvestorSlug(
+    supabase,
+    normalizeSlug(`${name}-${surname}`),
+    investor.id,
+  );
+  const { error: investorError } = await supabase
+    .from("investors")
+    .update({
+      first_name: name,
+      last_name: surname,
+      slug: nextSlug,
+      start_date: startDate,
+      status,
+    })
+    .eq("id", investor.id);
+
+  if (investorError) {
+    redirectWithInvestorError("update");
+  }
+
+  const { data: initialMovement } = await supabase
+    .from("investor_movements")
+    .select("id")
+    .eq("investor_id", investor.id)
+    .eq("movement_type", "initial_contribution")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (initialMovement) {
+    const { error: movementError } = await supabase
+      .from("investor_movements")
+      .update({
+        movement_date: startDate,
+        amount: initialContribution,
+        note: "Aportacion inicial",
+      })
+      .eq("id", initialMovement.id);
+
+    if (movementError) {
+      redirectWithInvestorError("movement");
+    }
+  } else {
+    const { error: movementError } = await supabase
+      .from("investor_movements")
+      .insert({
+        investor_id: investor.id,
+        movement_type: "initial_contribution",
+        movement_date: startDate,
+        amount: initialContribution,
+        note: "Aportacion inicial",
+      });
+
+    if (movementError) {
+      redirectWithInvestorError("movement");
+    }
+  }
+
+  redirect(`/admin?tab=panel&investor=${nextSlug}`);
+}
+
+export async function addInvestorMovement(formData: FormData) {
+  const slug = String(formData.get("slug") ?? "").trim();
+  const movementDate = String(formData.get("movement_date") ?? "");
+  const amount = parseMoneyInput(String(formData.get("amount") ?? ""));
+  const note = String(formData.get("note") ?? "").trim();
+  const rawType = String(formData.get("movement_type") ?? "");
+  const movementType =
+    rawType === "withdrawal" ? "withdrawal" : rawType === "contribution" ? "contribution" : "";
+
+  if (!slug || !movementDate || !movementType || !Number.isFinite(amount) || amount <= 0) {
+    redirectWithInvestorError("movement");
+  }
+
+  const { supabase } = await getAuthorizedTraderClient();
+  const investor = await getInvestorBySlug(supabase, slug);
+  const { error } = await supabase.from("investor_movements").insert({
+    investor_id: investor.id,
+    movement_type: movementType,
+    movement_date: movementDate,
+    amount,
+    note: note || (movementType === "contribution" ? "Aportacion parcial" : "Retirada parcial"),
+  });
+
+  if (error) {
+    redirectWithInvestorError("movement");
+  }
+
+  redirect(`/admin?tab=panel&investor=${slug}`);
 }
 
 export async function deleteInvestor(formData: FormData) {

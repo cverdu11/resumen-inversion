@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
+import { Fragment, useState } from "react";
+import { Eye, Pencil, Plus, Save, Trash2, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 
-import { deleteInvestor } from "@/app/admin/actions";
+import { deleteInvestor, updateInvestor } from "@/app/admin/actions";
 import { CreateInvestorForm } from "@/components/admin/create-investor-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +34,12 @@ import {
   valueTone,
 } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+
+const editInputClassName =
+  "h-9 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
+
+const editLabelClassName =
+  "text-xs font-semibold uppercase text-muted-foreground";
 
 const statusStyles: Record<
   InvestorStatus,
@@ -90,18 +96,87 @@ function DeleteInvestorButton() {
   );
 }
 
-function InvestorActionsMenu({ investor }: { investor: MockInvestor }) {
+function UpdateInvestorButton() {
+  const { pending } = useFormStatus();
+
   return (
-    <details className="group relative">
-      <summary
-        className="grid size-8 cursor-pointer list-none place-items-center rounded-sm border text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-card-foreground [&::-webkit-details-marker]:hidden"
-        aria-label={`Editar ${getInvestorFullName(investor)}`}
-      >
-        <Pencil className="size-4" />
-      </summary>
-      <div className="absolute left-0 top-10 z-30 w-52 rounded-md border bg-card p-1 shadow-xl shadow-background/40">
+    <Button type="submit" size="sm" disabled={pending}>
+      <Save data-icon="inline-start" />
+      {pending ? "Guardando..." : "Guardar cambios"}
+    </Button>
+  );
+}
+
+function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
+  return (
+    <div className="grid gap-4 rounded-md border bg-background/24 p-4">
+      <form action={updateInvestor} className="grid gap-4">
+        <input type="hidden" name="current_slug" value={investor.slug} />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <label className="grid gap-1.5">
+            <span className={editLabelClassName}>Nombre</span>
+            <input
+              className={editInputClassName}
+              name="name"
+              defaultValue={investor.name}
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className={editLabelClassName}>Apellidos</span>
+            <input
+              className={editInputClassName}
+              name="surname"
+              defaultValue={investor.surname}
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className={editLabelClassName}>Fecha inicio</span>
+            <input
+              className={editInputClassName}
+              name="start_date"
+              type="date"
+              defaultValue={investor.startDate}
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className={editLabelClassName}>Aportación inicial</span>
+            <input
+              className={cn(editInputClassName, "tabular-nums")}
+              name="initial_contribution"
+              type="text"
+              inputMode="decimal"
+              defaultValue={String(investor.initialContribution)}
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className={editLabelClassName}>Estado</span>
+            <select
+              className={editInputClassName}
+              name="status"
+              defaultValue={investor.status}
+            >
+              <option value="active">Activo</option>
+              <option value="pending">Pendiente</option>
+              <option value="watch">Seguimiento</option>
+              <option value="paused">Pausado</option>
+            </select>
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            La ruta se actualiza automaticamente si cambias el nombre.
+          </p>
+          <UpdateInvestorButton />
+        </div>
+      </form>
+      <div className="border-t pt-3">
         <form
           action={deleteInvestor}
+          className="max-w-56"
           onSubmit={(event) => {
             if (
               !window.confirm(
@@ -116,16 +191,20 @@ function InvestorActionsMenu({ investor }: { investor: MockInvestor }) {
           <DeleteInvestorButton />
         </form>
       </div>
-    </details>
+    </div>
   );
 }
 
 function MobileInvestorCard({
   investor,
+  isEditing,
   isSelected,
+  onToggleEdit,
 }: {
   investor: MockInvestor;
+  isEditing: boolean;
   isSelected: boolean;
+  onToggleEdit: () => void;
 }) {
   return (
     <div
@@ -135,20 +214,30 @@ function MobileInvestorCard({
       )}
     >
       <span className="flex items-start justify-between gap-3">
-        <Link
-          href={`/admin?tab=panel&investor=${investor.slug}`}
-          className="min-w-0"
-          aria-current={isSelected ? "true" : undefined}
-        >
-          <span className="block truncate text-sm font-semibold text-card-foreground">
-            {getInvestorFullName(investor)}
-          </span>
-          <span className="mt-1 block truncate text-xs text-muted-foreground">
-            /investor/{investor.slug}
-          </span>
-        </Link>
+        <span className="flex min-w-0 items-start gap-3">
+          <Button
+            variant={isEditing ? "secondary" : "ghost"}
+            size="icon"
+            className="size-8 rounded-sm"
+            aria-label={`Editar ${getInvestorFullName(investor)}`}
+            onClick={onToggleEdit}
+          >
+            <Pencil data-icon="inline-start" />
+          </Button>
+          <Link
+            href={`/admin?tab=panel&investor=${investor.slug}`}
+            className="min-w-0"
+            aria-current={isSelected ? "true" : undefined}
+          >
+            <span className="block truncate text-sm font-semibold text-card-foreground">
+              {getInvestorFullName(investor)}
+            </span>
+            <span className="mt-1 block truncate text-xs text-muted-foreground">
+              /investor/{investor.slug}
+            </span>
+          </Link>
+        </span>
         <span className="flex shrink-0 items-center gap-2">
-          <InvestorActionsMenu investor={investor} />
           <InvestorStatusPill status={investor.status} />
         </span>
       </span>
@@ -197,6 +286,11 @@ function MobileInvestorCard({
           </span>
         </span>
       </span>
+      {isEditing ? (
+        <div className="mt-4">
+          <InvestorEditPanel investor={investor} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -211,6 +305,15 @@ export function InvestorTable({
   selectedInvestorId: string;
 }) {
   const [isCreating, setIsCreating] = useState(false);
+  const [editingInvestorSlug, setEditingInvestorSlug] = useState<string | null>(
+    null,
+  );
+
+  function toggleEditingInvestor(slug: string) {
+    setEditingInvestorSlug((currentSlug) =>
+      currentSlug === slug ? null : slug,
+    );
+  }
 
   return (
     <Card className="overflow-hidden">
@@ -241,21 +344,28 @@ export function InvestorTable({
       ) : null}
       {investorError ? (
         <div className="border-b bg-danger-soft px-5 py-3 text-sm font-medium text-danger">
-          No se pudo crear el inversor. Revisa los datos e intentalo de nuevo.
+          No se pudo guardar el cambio. Revisa los datos e intentalo de nuevo.
         </div>
       ) : null}
       <CardContent className="p-0">
         <div className="lg:hidden">
+          {investors.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No hay inversores registrados todavia.
+            </div>
+          ) : null}
           {investors.map((investor) => (
             <MobileInvestorCard
               key={investor.id}
               investor={investor}
+              isEditing={editingInvestorSlug === investor.slug}
               isSelected={selectedInvestorId === investor.id}
+              onToggleEdit={() => toggleEditingInvestor(investor.slug)}
             />
           ))}
         </div>
         <Table
-          containerClassName="hidden max-h-[560px] lg:block"
+          containerClassName="hidden lg:block"
           className="min-w-[1164px] [&_td]:px-3 [&_th]:px-3"
         >
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur">
@@ -296,74 +406,94 @@ export function InvestorTable({
               const isSelected = selectedInvestorId === investor.id;
 
               return (
-                <TableRow
-                  key={investor.id}
-                  data-state={isSelected ? "selected" : undefined}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <InvestorActionsMenu investor={investor} />
-                      <Button
-                        variant={isSelected ? "default" : "ghost"}
-                        size="icon"
-                        className="size-8 rounded-sm"
-                        aria-label={`Vista previa de ${getInvestorFullName(
-                          investor,
-                        )}`}
-                        asChild
-                      >
-                        <Link
-                          href={`/admin?tab=panel&investor=${investor.slug}`}
-                        >
-                          <Eye data-icon="inline-start" />
-                        </Link>
-                      </Button>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-card-foreground">
-                          {getInvestorFullName(investor)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          ID {investor.id.replace("inv-", "")}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="tabular-nums text-card-foreground/86">
-                    {formatShortDate(investor.startDate)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-card-foreground/86">
-                    {formatCurrency(investor.initialContribution)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium text-positive">
-                    {formatCurrency(investor.additionalContributions, {
-                      sign: true,
-                    })}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium text-danger">
-                    {investor.withdrawals > 0
-                      ? formatCurrency(-investor.withdrawals, { sign: true })
-                      : "-"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-card-foreground/86">
-                    {formatCurrency(investor.currentBalance)}
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      "text-right tabular-nums font-medium",
-                      valueTone(investor.profit),
-                    )}
+                <Fragment key={investor.id}>
+                  <TableRow
+                    data-state={isSelected ? "selected" : undefined}
                   >
-                    {formatCurrency(investor.profit, { sign: true })}
-                  </TableCell>
-                  <TableCell>
-                    <InvestorStatusPill status={investor.status} />
-                  </TableCell>
-                  <TableCell>
-                    <code className="whitespace-nowrap rounded-md border bg-background/35 px-2 py-1 text-xs text-card-foreground/90">
-                      /investor/{investor.slug}
-                    </code>
-                  </TableCell>
-                </TableRow>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant={
+                            editingInvestorSlug === investor.slug
+                              ? "secondary"
+                              : "ghost"
+                          }
+                          size="icon"
+                          className="size-8 rounded-sm"
+                          aria-label={`Editar ${getInvestorFullName(investor)}`}
+                          onClick={() => toggleEditingInvestor(investor.slug)}
+                        >
+                          <Pencil data-icon="inline-start" />
+                        </Button>
+                        <Button
+                          variant={isSelected ? "default" : "ghost"}
+                          size="icon"
+                          className="size-8 rounded-sm"
+                          aria-label={`Vista previa de ${getInvestorFullName(
+                            investor,
+                          )}`}
+                          asChild
+                        >
+                          <Link
+                            href={`/admin?tab=panel&investor=${investor.slug}`}
+                          >
+                            <Eye data-icon="inline-start" />
+                          </Link>
+                        </Button>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-card-foreground">
+                            {getInvestorFullName(investor)}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            ID {investor.id.replace("inv-", "")}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="tabular-nums text-card-foreground/86">
+                      {formatShortDate(investor.startDate)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-card-foreground/86">
+                      {formatCurrency(investor.initialContribution)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium text-positive">
+                      {formatCurrency(investor.additionalContributions, {
+                        sign: true,
+                      })}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium text-danger">
+                      {investor.withdrawals > 0
+                        ? formatCurrency(-investor.withdrawals, { sign: true })
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-card-foreground/86">
+                      {formatCurrency(investor.currentBalance)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        valueTone(investor.profit),
+                      )}
+                    >
+                      {formatCurrency(investor.profit, { sign: true })}
+                    </TableCell>
+                    <TableCell>
+                      <InvestorStatusPill status={investor.status} />
+                    </TableCell>
+                    <TableCell>
+                      <code className="whitespace-nowrap rounded-md border bg-background/35 px-2 py-1 text-xs text-card-foreground/90">
+                        /investor/{investor.slug}
+                      </code>
+                    </TableCell>
+                  </TableRow>
+                  {editingInvestorSlug === investor.slug ? (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={9} className="bg-background/16 p-4">
+                        <InvestorEditPanel investor={investor} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               );
             })}
           </TableBody>
