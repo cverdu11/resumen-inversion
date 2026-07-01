@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ArrowUpDown,
   CalendarDays,
   Clock3,
   Percent,
@@ -57,6 +59,8 @@ const weeklyStatusOptions: {
 const fieldClassName =
   "h-8 w-full rounded-md border bg-background/45 px-2.5 text-sm text-card-foreground outline-none transition-colors focus:border-primary/70 focus:ring-2 focus:ring-primary/20";
 
+type PeriodSort = "desc" | "asc";
+
 function formatPeriodDate(date: string) {
   const formatted = periodDateFormatter
     .format(new Date(`${date}T12:00:00`))
@@ -91,19 +95,22 @@ function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
 
 function WeeklyReturnForm({
   compact = false,
+  formId,
   includeHiddenStatus = true,
   next,
   showStatus = false,
+  scope = "inline",
   week,
 }: {
   compact?: boolean;
+  formId?: string;
   includeHiddenStatus?: boolean;
   next: string;
   showStatus?: boolean;
+  scope?: "desktop" | "mobile" | "inline";
   week: WeeklyProfitabilityItem;
 }) {
-  const inputId = `return-pct-${week.id}`;
-  const formId = `weekly-form-${week.id}`;
+  const inputId = `return-pct-${scope}-${week.id}`;
 
   return (
     <form
@@ -206,7 +213,7 @@ function MobileWeekRow({
           {formatPeriod(week.startDate, week.endDate)}
         </p>
       </div>
-      <WeeklyReturnForm next={next} showStatus week={week} />
+      <WeeklyReturnForm next={next} scope="mobile" showStatus week={week} />
     </div>
   );
 }
@@ -222,6 +229,7 @@ export function WeeklyProfitabilityPanel({
   weeklyStatus?: string;
   weeks: WeeklyProfitabilityItem[];
 }) {
+  const [periodSort, setPeriodSort] = useState<PeriodSort>("desc");
   const currentWeek =
     weeks.find((week) => week.isCurrent) ??
     weeks.find((week) => week.status === "draft");
@@ -234,24 +242,85 @@ export function WeeklyProfitabilityPanel({
   const weeklyErrorMessage = weeklyError
     ? weeklyErrorCopy[weeklyError] ?? "No se pudo guardar la rentabilidad semanal."
     : "";
+  const sortedWeeks = useMemo(
+    () =>
+      [...weeks].sort((left, right) =>
+        periodSort === "desc"
+          ? right.startDate.localeCompare(left.startDate)
+          : left.startDate.localeCompare(right.startDate),
+      ),
+    [periodSort, weeks],
+  );
+
+  function togglePeriodSort() {
+    setPeriodSort((currentSort) => (currentSort === "desc" ? "asc" : "desc"));
+  }
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="flex-col items-start gap-4 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <Percent className="size-5 shrink-0 text-card-foreground" />
-          <div className="min-w-0">
-            <CardTitle className="text-base font-semibold uppercase">
-              Rentabilidad semanal
-            </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Porcentaje general que usara el calculo semanal de rentabilidad
-            </p>
+      <CardHeader className="border-b p-4 sm:p-5">
+        <div className="grid gap-4 xl:grid-cols-[minmax(280px,1fr)_minmax(620px,auto)] xl:items-center">
+          <div className="flex min-w-0 items-center gap-3">
+            <Percent className="size-5 shrink-0 text-card-foreground" />
+            <div className="min-w-0">
+              <CardTitle className="text-base font-semibold uppercase">
+                Rentabilidad semanal
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Porcentaje general que usara el calculo semanal de rentabilidad
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border bg-background/22 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <CalendarDays className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold uppercase text-card-foreground">
+                    Semana actual
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {currentWeek
+                      ? formatPeriod(currentWeek.startDate, currentWeek.endDate)
+                      : "Sin semana activa"}
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-3 text-2xl font-semibold tabular-nums tracking-normal",
+                      currentWeek?.isSaved
+                        ? valueTone(currentWeek.returnPct)
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {currentWeek?.isSaved
+                      ? formatPercent(currentWeek.returnPct, { sign: true })
+                      : "-"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-background/22 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <Clock3 className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold uppercase text-card-foreground">
+                    Proxima entrada
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {nextWeek
+                      ? formatPeriod(nextWeek.startDate, nextWeek.endDate)
+                      : "Calendario al dia"}
+                  </p>
+                  <p className="mt-3 text-sm font-semibold text-card-foreground">
+                    {closedWeeks.length} semanas cerradas
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <span className="rounded-md border bg-background/35 px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-          Edicion directa
-        </span>
       </CardHeader>
 
       <CardContent className="p-0">
@@ -266,58 +335,22 @@ export function WeeklyProfitabilityPanel({
           </div>
         ) : null}
 
-        <div className="grid border-b lg:grid-cols-[1fr_1fr]">
-          <div className="border-b px-5 py-4 lg:border-b-0 lg:border-r">
-            <div className="flex items-center gap-3">
-              <CalendarDays className="size-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold uppercase text-card-foreground">
-                  Semana actual
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {currentWeek
-                    ? formatPeriod(currentWeek.startDate, currentWeek.endDate)
-                    : "Sin semana activa"}
-                </p>
-              </div>
-            </div>
-            <p
-              className={cn(
-                "mt-4 text-3xl font-semibold tabular-nums tracking-normal",
-                currentWeek?.isSaved
-                  ? valueTone(currentWeek.returnPct)
-                  : "text-muted-foreground",
-              )}
-            >
-              {currentWeek?.isSaved
-                ? formatPercent(currentWeek.returnPct, { sign: true })
-                : "-"}
-            </p>
-          </div>
-          <div className="px-5 py-4">
-            <div className="flex items-center gap-3">
-              <Clock3 className="size-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold uppercase text-card-foreground">
-                  Proxima entrada
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {nextWeek
-                    ? formatPeriod(nextWeek.startDate, nextWeek.endDate)
-                    : "Calendario al dia"}
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="rounded-md border bg-background/35 px-3 py-2 text-sm text-card-foreground">
-                {closedWeeks.length} semanas cerradas
-              </span>
-            </div>
-          </div>
+        <div className="border-b px-4 py-3 md:hidden">
+          <Button
+            className="w-full justify-center"
+            onClick={togglePeriodSort}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <ArrowUpDown className="size-4" data-icon="inline-start" />
+            Periodo:{" "}
+            {periodSort === "desc" ? "reciente primero" : "antiguo primero"}
+          </Button>
         </div>
 
         <div className="md:hidden">
-          {weeks.map((week) => (
+          {sortedWeeks.map((week) => (
             <MobileWeekRow key={week.id} next={next} week={week} />
           ))}
         </div>
@@ -327,7 +360,21 @@ export function WeeklyProfitabilityPanel({
             <TableRow className="hover:bg-transparent">
               <TableHead className="min-w-32">Semana</TableHead>
               <TableHead className="min-w-44">Mes</TableHead>
-              <TableHead className="min-w-56">Periodo</TableHead>
+              <TableHead className="min-w-56">
+                <button
+                  className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-left text-xs font-semibold uppercase text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-card-foreground"
+                  onClick={togglePeriodSort}
+                  type="button"
+                >
+                  Periodo
+                  <ArrowUpDown className="size-3.5" />
+                  <span className="text-[0.65rem] font-medium normal-case">
+                    {periodSort === "desc"
+                      ? "reciente primero"
+                      : "antiguo primero"}
+                  </span>
+                </button>
+              </TableHead>
               <TableHead className="min-w-44 text-right">
                 Rentabilidad
               </TableHead>
@@ -335,8 +382,8 @@ export function WeeklyProfitabilityPanel({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {weeks.map((week) => {
-              const formId = `weekly-form-${week.id}`;
+            {sortedWeeks.map((week) => {
+              const formId = `weekly-form-desktop-${week.id}`;
 
               return (
                 <TableRow key={week.id}>
@@ -352,8 +399,10 @@ export function WeeklyProfitabilityPanel({
                   <TableCell>
                     <WeeklyReturnForm
                       compact
+                      formId={formId}
                       includeHiddenStatus={false}
                       next={next}
+                      scope="desktop"
                       week={week}
                     />
                   </TableCell>
