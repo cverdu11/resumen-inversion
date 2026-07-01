@@ -50,7 +50,8 @@ const percentInputFormatter = new Intl.NumberFormat("es-ES", {
 });
 
 const weeklyErrorCopy: Record<string, string> = {
-  invalid: "Revisa la semana y el porcentaje. El valor debe estar entre -100 % y 100 %.",
+  invalid:
+    "Revisa la semana y el porcentaje. El valor debe estar entre -100 % y 100 %.",
   save: "No se pudo guardar la rentabilidad semanal. Pruebalo de nuevo.",
 };
 
@@ -75,13 +76,6 @@ const fieldClassName =
 
 type PeriodSort = "desc" | "asc";
 
-type MonthlyWeeklyReturn = {
-  id: string;
-  periodLabel: string;
-  returnPct: number;
-  weekLabel: string;
-};
-
 type MonthlyProfitabilitySummary = {
   id: string;
   finalValue: number;
@@ -89,7 +83,9 @@ type MonthlyProfitabilitySummary = {
   monthLabel: string;
   result: number;
   returnPct: number;
-  weeks: MonthlyWeeklyReturn[];
+  savedWeeksCount: number;
+  totalWeeksCount: number;
+  weeks: WeeklyProfitabilityItem[];
 };
 
 function formatPeriodDate(date: string) {
@@ -127,16 +123,24 @@ function roundMonthlyValue(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function sortWeeksByPeriod(
+  weeks: WeeklyProfitabilityItem[],
+  periodSort: PeriodSort,
+) {
+  return [...weeks].sort((left, right) =>
+    periodSort === "desc"
+      ? right.startDate.localeCompare(left.startDate)
+      : left.startDate.localeCompare(right.startDate),
+  );
+}
+
 function buildMonthlyProfitabilityOverview(
   weeks: WeeklyProfitabilityItem[],
+  periodSort: PeriodSort,
 ): MonthlyProfitabilitySummary[] {
   const weeksByMonth = new Map<string, WeeklyProfitabilityItem[]>();
 
   for (const week of weeks) {
-    if (!week.isSaved) {
-      continue;
-    }
-
     const monthKey = week.endDate.slice(0, 7);
     const existingWeeks = weeksByMonth.get(monthKey) ?? [];
     existingWeeks.push(week);
@@ -144,13 +148,17 @@ function buildMonthlyProfitabilityOverview(
   }
 
   return [...weeksByMonth.entries()]
-    .sort(([leftMonth], [rightMonth]) => rightMonth.localeCompare(leftMonth))
+    .sort(([leftMonth], [rightMonth]) =>
+      periodSort === "desc"
+        ? rightMonth.localeCompare(leftMonth)
+        : leftMonth.localeCompare(rightMonth),
+    )
     .map(([monthKey, monthWeeks]) => {
-      const orderedWeeks = [...monthWeeks].sort((left, right) =>
-        left.endDate.localeCompare(right.endDate),
-      );
+      const savedWeeks = [...monthWeeks]
+        .filter((week) => week.isSaved)
+        .sort((left, right) => left.startDate.localeCompare(right.startDate));
       const initialValue = 100;
-      const finalValue = orderedWeeks.reduce(
+      const finalValue = savedWeeks.reduce(
         (value, week) => value * (1 + week.returnPct / 100),
         initialValue,
       );
@@ -165,12 +173,9 @@ function buildMonthlyProfitabilityOverview(
         monthLabel: formatMonthTitle(monthKey),
         result,
         returnPct,
-        weeks: orderedWeeks.map((week) => ({
-          id: week.id,
-          periodLabel: formatPeriod(week.startDate, week.endDate),
-          returnPct: week.returnPct,
-          weekLabel: week.weekLabel,
-        })),
+        savedWeeksCount: savedWeeks.length,
+        totalWeeksCount: monthWeeks.length,
+        weeks: sortWeeksByPeriod(monthWeeks, periodSort),
       };
     });
 }
@@ -251,11 +256,12 @@ function WeeklyReturnForm({
   return (
     <form
       action={saveWeeklyProfitability}
-      id={formId}
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2",
-        compact ? "justify-end md:flex md:items-center" : "mt-3",
+        compact
+          ? "grid grid-cols-[minmax(0,7rem)_auto] items-center justify-end gap-2"
+          : "mt-3 grid gap-3",
       )}
+      id={formId}
     >
       <input name="next" type="hidden" value={next} />
       <input name="week_start" type="hidden" value={week.startDate} />
@@ -268,7 +274,6 @@ function WeeklyReturnForm({
           className={cn(
             fieldClassName,
             "py-1.5 pl-2.5 pr-7 text-right tabular-nums placeholder:text-muted-foreground/70",
-            compact && "md:w-24",
           )}
           defaultValue={week.isSaved ? formatReturnInput(week.returnPct) : ""}
           id={inputId}
@@ -282,7 +287,7 @@ function WeeklyReturnForm({
         </span>
       </div>
       {showStatus ? (
-        <label className="col-span-2 grid gap-1.5">
+        <label className="grid gap-1.5">
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Estado
           </span>
@@ -296,7 +301,24 @@ function WeeklyReturnForm({
   );
 }
 
-function MobileWeekRow({
+function WeekStatusBadge({ status }: { status: WeeklyProfitabilityItem["status"] }) {
+  const label =
+    weeklyStatusOptions.find((option) => option.value === status)?.label ??
+    status;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex h-7 items-center rounded-md border px-3 text-xs font-semibold uppercase",
+        weeklyStatusClassName[status],
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function MobileWeekEditor({
   next,
   week,
 }: {
@@ -304,83 +326,86 @@ function MobileWeekRow({
   week: WeeklyProfitabilityItem;
 }) {
   return (
-    <div className="border-b px-4 py-4 last:border-b-0">
-      <div>
-        <p className="text-sm font-semibold text-card-foreground">
-          {week.weekLabel}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {week.monthLabel}
-        </p>
-        <p className="mt-1 text-xs text-card-foreground/76">
-          {formatPeriod(week.startDate, week.endDate)}
-        </p>
+    <div className="border-t px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-card-foreground">
+            {week.weekLabel}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatPeriod(week.startDate, week.endDate)}
+          </p>
+        </div>
+        <WeekStatusBadge status={week.status} />
       </div>
       <WeeklyReturnForm next={next} scope="mobile" showStatus week={week} />
     </div>
   );
 }
 
-function MonthlyWeeklyBreakdown({
+function MonthChildWeeks({
+  next,
   summary,
 }: {
+  next: string;
   summary: MonthlyProfitabilitySummary;
 }) {
   return (
-    <div className="border-t bg-muted/18 px-4 py-4 sm:px-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-card-foreground">
-            Resultado semanal neto
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {summary.monthLabel}
-          </p>
-        </div>
-        <p
-          className={cn(
-            "text-sm font-semibold tabular-nums",
-            valueTone(summary.returnPct),
-          )}
-        >
-          {formatPercent(summary.returnPct, { sign: true })}
-        </p>
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-        {summary.weeks.map((week) => (
-          <div
-            key={week.id}
-            className="flex items-center justify-between gap-3 rounded-md border bg-background/35 px-3 py-2"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-card-foreground">
-                {week.weekLabel}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {week.periodLabel}
-              </p>
-            </div>
-            <span
-              className={cn(
-                "shrink-0 text-sm font-semibold tabular-nums",
-                valueTone(week.returnPct),
-              )}
-            >
-              {formatPercent(week.returnPct, { sign: true })}
-            </span>
+    <div className="border-t bg-muted/14">
+      <div className="hidden px-5 py-4 md:block">
+        <div className="rounded-md border bg-background/22">
+          <div className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(14rem,auto)_minmax(9rem,auto)] gap-4 border-b px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
+            <span>Semana</span>
+            <span>Periodo</span>
+            <span className="text-right">Rentabilidad</span>
+            <span>Estado</span>
           </div>
+          {summary.weeks.map((week) => {
+            const formId = `weekly-form-desktop-${summary.id}-${week.id}`;
+
+            return (
+              <div
+                className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(14rem,auto)_minmax(9rem,auto)] items-center gap-4 border-b px-4 py-3 last:border-b-0"
+                key={week.id}
+              >
+                <div className="font-medium text-card-foreground">
+                  {week.weekLabel}
+                </div>
+                <div className="tabular-nums text-card-foreground/82">
+                  {formatPeriod(week.startDate, week.endDate)}
+                </div>
+                <WeeklyReturnForm
+                  compact
+                  formId={formId}
+                  includeHiddenStatus={false}
+                  next={next}
+                  scope="desktop"
+                  week={week}
+                />
+                <WeeklyStatusSelect formId={formId} status={week.status} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="md:hidden">
+        {summary.weeks.map((week) => (
+          <MobileWeekEditor key={week.id} next={next} week={week} />
         ))}
       </div>
     </div>
   );
 }
 
-function MobileMonthlyOverviewRow({
+function MobileMonthRow({
   isExpanded,
+  next,
   onToggle,
   summary,
 }: {
   isExpanded: boolean;
+  next: string;
   onToggle: () => void;
   summary: MonthlyProfitabilitySummary;
 }) {
@@ -388,7 +413,7 @@ function MobileMonthlyOverviewRow({
     <div className="border-b last:border-b-0">
       <button
         aria-expanded={isExpanded}
-        aria-label={`Detalle semanal de ${summary.monthLabel}`}
+        aria-label={`Semanas de ${summary.monthLabel}`}
         className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/18"
         onClick={onToggle}
         type="button"
@@ -407,7 +432,8 @@ function MobileMonthlyOverviewRow({
                 {summary.monthLabel}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
-                Valor final {formatNumber(summary.finalValue)}
+                {summary.savedWeeksCount} de {summary.totalWeeksCount} semanas
+                guardadas
               </span>
             </span>
             <span
@@ -419,13 +445,21 @@ function MobileMonthlyOverviewRow({
               {formatPercent(summary.returnPct, { sign: true })}
             </span>
           </span>
-          <span className="mt-3 grid grid-cols-2 gap-2">
+          <span className="mt-3 grid grid-cols-3 gap-2">
             <span className="rounded-md border bg-background/28 px-3 py-2">
               <span className="block text-[0.68rem] font-medium uppercase text-muted-foreground">
                 Inicial
               </span>
               <span className="mt-1 block text-sm font-semibold tabular-nums text-card-foreground/90">
                 {formatNumber(summary.initialValue)}
+              </span>
+            </span>
+            <span className="rounded-md border bg-background/28 px-3 py-2">
+              <span className="block text-[0.68rem] font-medium uppercase text-muted-foreground">
+                Final
+              </span>
+              <span className="mt-1 block text-sm font-semibold tabular-nums text-card-foreground/90">
+                {formatNumber(summary.finalValue)}
               </span>
             </span>
             <span className="rounded-md border bg-background/28 px-3 py-2">
@@ -444,147 +478,8 @@ function MobileMonthlyOverviewRow({
           </span>
         </span>
       </button>
-      {isExpanded ? <MonthlyWeeklyBreakdown summary={summary} /> : null}
+      {isExpanded ? <MonthChildWeeks next={next} summary={summary} /> : null}
     </div>
-  );
-}
-
-function MonthlyProfitabilityOverview({
-  summaries,
-}: {
-  summaries: MonthlyProfitabilitySummary[];
-}) {
-  const [expandedMonthId, setExpandedMonthId] = useState("__latest__");
-  const activeMonthId =
-    expandedMonthId === "__latest__"
-      ? summaries[0]?.id
-      : expandedMonthId || null;
-
-  function toggleMonth(monthId: string) {
-    setExpandedMonthId((currentMonthId) => {
-      const currentActiveMonthId =
-        currentMonthId === "__latest__" ? summaries[0]?.id : currentMonthId;
-
-      return currentActiveMonthId === monthId ? "" : monthId;
-    });
-  }
-
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex-col items-start gap-4 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <CalendarDays className="size-5 shrink-0 text-card-foreground" />
-          <div className="min-w-0">
-            <CardTitle className="text-base font-semibold uppercase">
-              Resumen mensual
-            </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Base 100 compuesta por las rentabilidades semanales guardadas
-            </p>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {summaries.length} meses en total
-        </p>
-      </CardHeader>
-      <CardContent className="p-0">
-        {summaries.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No hay rentabilidades semanales guardadas todavia.
-          </div>
-        ) : null}
-
-        <div className="md:hidden">
-          {summaries.map((summary) => (
-            <MobileMonthlyOverviewRow
-              key={summary.id}
-              isExpanded={activeMonthId === summary.id}
-              onToggle={() => toggleMonth(summary.id)}
-              summary={summary}
-            />
-          ))}
-        </div>
-
-        <Table containerClassName="hidden md:block">
-          <TableHeader className="bg-card/95">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-44">Mes</TableHead>
-              <TableHead className="min-w-36 text-right">
-                Valor inicial
-              </TableHead>
-              <TableHead className="min-w-36 text-right">Valor final</TableHead>
-              <TableHead className="min-w-40 text-right">
-                Beneficio / perdida
-              </TableHead>
-              <TableHead className="min-w-36 text-right">
-                Rentabilidad
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {summaries.map((summary) => {
-              const isExpanded = activeMonthId === summary.id;
-
-              return (
-                <Fragment key={summary.id}>
-                  <TableRow>
-                    <TableCell className="font-medium text-card-foreground/90">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          aria-expanded={isExpanded}
-                          aria-label={`Detalle semanal de ${summary.monthLabel}`}
-                          className="size-7 rounded-sm"
-                          onClick={() => toggleMonth(summary.id)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown data-icon="inline-start" />
-                          ) : (
-                            <ChevronRight data-icon="inline-start" />
-                          )}
-                        </Button>
-                        <span>{summary.monthLabel}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-card-foreground/86">
-                      {formatNumber(summary.initialValue)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-card-foreground/86">
-                      {formatNumber(summary.finalValue)}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-right tabular-nums font-medium",
-                        valueTone(summary.result),
-                      )}
-                    >
-                      {formatSignedNumber(summary.result)}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-right tabular-nums font-medium",
-                        valueTone(summary.returnPct),
-                      )}
-                    >
-                      {formatPercent(summary.returnPct, { sign: true })}
-                    </TableCell>
-                  </TableRow>
-                  {isExpanded ? (
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={5} className="p-0">
-                        <MonthlyWeeklyBreakdown summary={summary} />
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </Fragment>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -600,6 +495,7 @@ export function WeeklyProfitabilityPanel({
   weeks: WeeklyProfitabilityItem[];
 }) {
   const [periodSort, setPeriodSort] = useState<PeriodSort>("desc");
+  const [expandedMonthId, setExpandedMonthId] = useState("__latest__");
   const currentWeek =
     weeks.find((week) => week.isCurrent) ??
     weeks.find((week) => week.status === "draft");
@@ -610,29 +506,34 @@ export function WeeklyProfitabilityPanel({
     (week) => week.status === "closed" && week.isSaved,
   );
   const weeklyErrorMessage = weeklyError
-    ? weeklyErrorCopy[weeklyError] ?? "No se pudo guardar la rentabilidad semanal."
+    ? weeklyErrorCopy[weeklyError] ??
+      "No se pudo guardar la rentabilidad semanal."
     : "";
-  const sortedWeeks = useMemo(
-    () =>
-      [...weeks].sort((left, right) =>
-        periodSort === "desc"
-          ? right.startDate.localeCompare(left.startDate)
-          : left.startDate.localeCompare(right.startDate),
-      ),
+  const monthlyOverview = useMemo(
+    () => buildMonthlyProfitabilityOverview(weeks, periodSort),
     [periodSort, weeks],
   );
-  const monthlyOverview = useMemo(
-    () => buildMonthlyProfitabilityOverview(weeks),
-    [weeks],
-  );
+  const activeMonthId =
+    expandedMonthId === "__latest__"
+      ? monthlyOverview[0]?.id
+      : expandedMonthId || null;
+
+  function toggleMonth(monthId: string) {
+    setExpandedMonthId((currentMonthId) => {
+      const currentActiveMonthId =
+        currentMonthId === "__latest__" ? monthlyOverview[0]?.id : currentMonthId;
+
+      return currentActiveMonthId === monthId ? "" : monthId;
+    });
+  }
 
   function togglePeriodSort() {
     setPeriodSort((currentSort) => (currentSort === "desc" ? "asc" : "desc"));
+    setExpandedMonthId("__latest__");
   }
 
   return (
-    <div className="grid gap-4">
-      <Card className="overflow-hidden">
+    <Card className="overflow-hidden">
       <CardHeader className="border-b p-4 sm:p-5">
         <div className="grid gap-4 xl:grid-cols-[minmax(280px,1fr)_minmax(620px,auto)] xl:items-center">
           <div className="flex min-w-0 items-center gap-3">
@@ -710,91 +611,133 @@ export function WeeklyProfitabilityPanel({
           </div>
         ) : null}
 
-        <div className="border-b px-4 py-3 md:hidden">
+        <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase text-card-foreground">
+              Resumen mensual
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Base 100 compuesta por las rentabilidades semanales guardadas
+            </p>
+          </div>
           <Button
-            className="w-full justify-center"
+            className="justify-center"
             onClick={togglePeriodSort}
             size="sm"
             type="button"
             variant="outline"
           >
             <ArrowUpDown className="size-4" data-icon="inline-start" />
-            Periodo:{" "}
-            {periodSort === "desc" ? "reciente primero" : "antiguo primero"}
+            {periodSort === "desc" ? "Reciente primero" : "Antiguo primero"}
           </Button>
         </div>
 
+        {monthlyOverview.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No hay semanas generadas todavia.
+          </div>
+        ) : null}
+
         <div className="md:hidden">
-          {sortedWeeks.map((week) => (
-            <MobileWeekRow key={week.id} next={next} week={week} />
+          {monthlyOverview.map((summary) => (
+            <MobileMonthRow
+              isExpanded={activeMonthId === summary.id}
+              key={summary.id}
+              next={next}
+              onToggle={() => toggleMonth(summary.id)}
+              summary={summary}
+            />
           ))}
         </div>
 
         <Table containerClassName="hidden md:block">
           <TableHeader className="bg-card/95">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-32">Semana</TableHead>
-              <TableHead className="min-w-44">Mes</TableHead>
-              <TableHead className="min-w-56">
-                <button
-                  className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-left text-xs font-semibold uppercase text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-card-foreground"
-                  onClick={togglePeriodSort}
-                  type="button"
-                >
-                  Periodo
-                  <ArrowUpDown className="size-3.5" />
-                  <span className="text-[0.65rem] font-medium normal-case">
-                    {periodSort === "desc"
-                      ? "reciente primero"
-                      : "antiguo primero"}
-                  </span>
-                </button>
+              <TableHead className="min-w-56">Mes</TableHead>
+              <TableHead className="min-w-28 text-right">
+                Valor inicial
               </TableHead>
-              <TableHead className="min-w-44 text-right">
+              <TableHead className="min-w-28 text-right">Valor final</TableHead>
+              <TableHead className="min-w-32 text-right">
+                Beneficio / perdida
+              </TableHead>
+              <TableHead className="min-w-32 text-right">
                 Rentabilidad
               </TableHead>
-              <TableHead className="min-w-56">Estado</TableHead>
+              <TableHead className="min-w-44 text-right">Semanas</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedWeeks.map((week) => {
-              const formId = `weekly-form-desktop-${week.id}`;
+            {monthlyOverview.map((summary) => {
+              const isExpanded = activeMonthId === summary.id;
 
               return (
-                <TableRow key={week.id}>
-                  <TableCell className="font-medium text-card-foreground">
-                    {week.weekLabel}
-                  </TableCell>
-                  <TableCell className="text-card-foreground/86">
-                    {week.monthLabel}
-                  </TableCell>
-                  <TableCell className="tabular-nums text-card-foreground/86">
-                    {formatPeriod(week.startDate, week.endDate)}
-                  </TableCell>
-                  <TableCell>
-                    <WeeklyReturnForm
-                      compact
-                      formId={formId}
-                      includeHiddenStatus={false}
-                      next={next}
-                      scope="desktop"
-                      week={week}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <WeeklyStatusSelect
-                      formId={formId}
-                      status={week.status}
-                    />
-                  </TableCell>
-                </TableRow>
+                <Fragment key={summary.id}>
+                  <TableRow>
+                    <TableCell className="font-medium text-card-foreground/90">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          aria-expanded={isExpanded}
+                          aria-label={`Semanas de ${summary.monthLabel}`}
+                          className="size-7 rounded-sm"
+                          onClick={() => toggleMonth(summary.id)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown data-icon="inline-start" />
+                          ) : (
+                            <ChevronRight data-icon="inline-start" />
+                          )}
+                        </Button>
+                        <span>{summary.monthLabel}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-card-foreground/86">
+                      {formatNumber(summary.initialValue)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-card-foreground/86">
+                      {formatNumber(summary.finalValue)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        valueTone(summary.result),
+                      )}
+                    >
+                      {formatSignedNumber(summary.result)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        valueTone(summary.returnPct),
+                      )}
+                    >
+                      {formatPercent(summary.returnPct, { sign: true })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="font-medium text-card-foreground">
+                        {summary.savedWeeksCount}/{summary.totalWeeksCount}
+                      </span>
+                      <span className="ml-1 text-muted-foreground">
+                        guardadas
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded ? (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell className="p-0" colSpan={6}>
+                        <MonthChildWeeks next={next} summary={summary} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               );
             })}
           </TableBody>
         </Table>
       </CardContent>
-      </Card>
-      <MonthlyProfitabilityOverview summaries={monthlyOverview} />
-    </div>
+    </Card>
   );
 }
