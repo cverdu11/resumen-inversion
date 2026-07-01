@@ -100,6 +100,17 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function getMonthKey(date: string) {
+  return date.slice(0, 7);
+}
+
+function getNextMonthStart(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const nextMonth = new Date(year, month, 1, 12);
+
+  return nextMonth.toISOString().slice(0, 10);
+}
+
 function getMovementEffect(movement: DatabaseMovementRow) {
   const amount = Number(movement.amount);
 
@@ -119,18 +130,46 @@ function calculateInvestorPerformance(
   });
   let balance = 0;
   let movementIndex = 0;
+  const weeklyReturnsByMonth = new Map<string, ClosedWeeklyReturn[]>();
 
   for (const weeklyReturn of closedWeeklyReturns) {
+    const monthKey = getMonthKey(weeklyReturn.weekEnd);
+    const existingWeeklyReturns = weeklyReturnsByMonth.get(monthKey) ?? [];
+    existingWeeklyReturns.push(weeklyReturn);
+    weeklyReturnsByMonth.set(monthKey, existingWeeklyReturns);
+  }
+
+  const monthKeys = [...weeklyReturnsByMonth.keys()].sort();
+
+  for (const monthKey of monthKeys) {
+    const monthStart = `${monthKey}-01`;
+    const nextMonthStart = getNextMonthStart(monthKey);
+
     while (
       movementIndex < orderedMovements.length &&
-      orderedMovements[movementIndex].movement_date <= weeklyReturn.weekEnd
+      orderedMovements[movementIndex].movement_date < monthStart
     ) {
       balance += getMovementEffect(orderedMovements[movementIndex]);
       movementIndex += 1;
     }
 
-    if (balance > 0) {
-      balance += (balance * weeklyReturn.returnPct) / 100;
+    const monthStartBalance = balance;
+
+    if (monthStartBalance > 0) {
+      const monthlyProfit = (weeklyReturnsByMonth.get(monthKey) ?? []).reduce(
+        (total, weeklyReturn) =>
+          total + (monthStartBalance * weeklyReturn.returnPct) / 100,
+        0,
+      );
+      balance += monthlyProfit;
+    }
+
+    while (
+      movementIndex < orderedMovements.length &&
+      orderedMovements[movementIndex].movement_date < nextMonthStart
+    ) {
+      balance += getMovementEffect(orderedMovements[movementIndex]);
+      movementIndex += 1;
     }
   }
 

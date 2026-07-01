@@ -185,12 +185,14 @@ function buildMonthlyProfitabilityOverview(
         .filter((week) => week.isSaved)
         .sort((left, right) => left.startDate.localeCompare(right.startDate));
       const initialValue = 100;
-      const finalValue = savedWeeks.reduce(
-        (value, week) => value * (1 + week.returnPct / 100),
-        initialValue,
+      const result = roundMonthlyValue(
+        savedWeeks.reduce(
+          (total, week) => total + (initialValue * week.returnPct) / 100,
+          0,
+        ),
       );
+      const finalValue = initialValue + result;
       const roundedFinalValue = roundMonthlyValue(finalValue);
-      const result = roundMonthlyValue(roundedFinalValue - initialValue);
       const returnPct = roundMonthlyValue((result / initialValue) * 100);
 
       return {
@@ -742,7 +744,7 @@ export function WeeklyProfitabilityPanel({
               Resumen mensual
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Base 100 compuesta por las rentabilidades semanales guardadas
+              Base 100 mensual calculada desde el inicio de cada mes
             </p>
           </div>
           <Button
