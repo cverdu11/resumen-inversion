@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Plus, UsersRound } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
 import Link from "next/link";
+import { useFormStatus } from "react-dom";
 
+import { deleteInvestor } from "@/app/admin/actions";
 import { CreateInvestorForm } from "@/components/admin/create-investor-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,6 +75,51 @@ export function InvestorStatusPill({ status }: { status: InvestorStatus }) {
   );
 }
 
+function DeleteInvestorButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-danger transition-colors hover:bg-danger-soft disabled:cursor-default disabled:opacity-55"
+    >
+      <Trash2 className="size-4" />
+      {pending ? "Eliminando..." : "Eliminar inversor"}
+    </button>
+  );
+}
+
+function InvestorActionsMenu({ investor }: { investor: MockInvestor }) {
+  return (
+    <details className="group relative">
+      <summary
+        className="grid size-8 cursor-pointer list-none place-items-center rounded-sm border text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-card-foreground [&::-webkit-details-marker]:hidden"
+        aria-label={`Editar ${getInvestorFullName(investor)}`}
+      >
+        <Pencil className="size-4" />
+      </summary>
+      <div className="absolute left-0 top-10 z-30 w-52 rounded-md border bg-card p-1 shadow-xl shadow-background/40">
+        <form
+          action={deleteInvestor}
+          onSubmit={(event) => {
+            if (
+              !window.confirm(
+                `Eliminar a ${getInvestorFullName(investor)} del dashboard y la base de datos?`,
+              )
+            ) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="slug" value={investor.slug} />
+          <DeleteInvestorButton />
+        </form>
+      </div>
+    </details>
+  );
+}
+
 function MobileInvestorCard({
   investor,
   isSelected,
@@ -81,24 +128,29 @@ function MobileInvestorCard({
   isSelected: boolean;
 }) {
   return (
-    <Link
-      href={`/admin?tab=panel&investor=${investor.slug}`}
+    <div
       className={cn(
-        "block w-full border-b px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/35",
+        "w-full border-b px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/35",
         isSelected && "bg-secondary/55",
       )}
-      aria-current={isSelected ? "true" : undefined}
     >
       <span className="flex items-start justify-between gap-3">
-        <span className="min-w-0">
+        <Link
+          href={`/admin?tab=panel&investor=${investor.slug}`}
+          className="min-w-0"
+          aria-current={isSelected ? "true" : undefined}
+        >
           <span className="block truncate text-sm font-semibold text-card-foreground">
             {getInvestorFullName(investor)}
           </span>
           <span className="mt-1 block truncate text-xs text-muted-foreground">
             /investor/{investor.slug}
           </span>
+        </Link>
+        <span className="flex shrink-0 items-center gap-2">
+          <InvestorActionsMenu investor={investor} />
+          <InvestorStatusPill status={investor.status} />
         </span>
-        <InvestorStatusPill status={investor.status} />
       </span>
 
       <span className="mt-4 grid grid-cols-2 gap-2">
@@ -145,7 +197,7 @@ function MobileInvestorCard({
           </span>
         </span>
       </span>
-    </Link>
+    </div>
   );
 }
 
@@ -208,7 +260,7 @@ export function InvestorTable({
         >
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-[180px]">Inversor</TableHead>
+              <TableHead className="min-w-[220px]">Inversor</TableHead>
               <TableHead className="min-w-[90px]">Fecha inicio</TableHead>
               <TableHead className="min-w-[124px] text-right">
                 Aportación inicial
@@ -230,6 +282,16 @@ export function InvestorTable({
             </TableRow>
           </TableHeader>
           <TableBody>
+            {investors.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={9}
+                  className="h-28 text-center text-sm text-muted-foreground"
+                >
+                  No hay inversores registrados todavia.
+                </TableCell>
+              </TableRow>
+            ) : null}
             {investors.map((investor) => {
               const isSelected = selectedInvestorId === investor.id;
 
@@ -240,6 +302,7 @@ export function InvestorTable({
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
+                      <InvestorActionsMenu investor={investor} />
                       <Button
                         variant={isSelected ? "default" : "ghost"}
                         size="icon"

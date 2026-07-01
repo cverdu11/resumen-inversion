@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   getAdminOverview,
-  mockInvestors,
   type MockInvestor,
   weeklyProfitability,
 } from "@/lib/admin-mock-data";
@@ -47,10 +46,7 @@ export function AdminDashboard({
   selectedInvestorSlug?: string;
   userEmail?: string;
 }) {
-  const investors = useMemo(
-    () => (databaseInvestors.length > 0 ? databaseInvestors : mockInvestors),
-    [databaseInvestors],
-  );
+  const investors = databaseInvestors;
   const overview = useMemo(() => getAdminOverview(investors), [investors]);
   const selectedInvestor =
     investors.find((investor) => investor.slug === selectedInvestorSlug) ??
@@ -58,7 +54,8 @@ export function AdminDashboard({
   const selectedInvestorId = selectedInvestor?.id ?? "";
   const selectedSlug =
     selectedInvestor?.slug ?? selectedInvestorSlug ?? investors[0]?.slug;
-  const currentAdminPath = `/admin?tab=${activeTab}&investor=${selectedSlug}`;
+  const selectedInvestorParam = selectedSlug ? `&investor=${selectedSlug}` : "";
+  const currentAdminPath = `/admin?tab=${activeTab}${selectedInvestorParam}`;
 
   const kpis = [
     {
@@ -109,13 +106,13 @@ export function AdminDashboard({
 
   const tabs = [
     {
-      href: `/admin?tab=panel&investor=${selectedSlug}`,
+      href: `/admin?tab=panel${selectedInvestorParam}`,
       label: "Panel trader",
       value: "panel",
       icon: UsersRound,
     },
     {
-      href: `/admin?tab=rentabilidad&investor=${selectedSlug}`,
+      href: `/admin?tab=rentabilidad${selectedInvestorParam}`,
       label: "% Rentabilidad semanal",
       value: "rentabilidad",
       icon: TrendingUp,

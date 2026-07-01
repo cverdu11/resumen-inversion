@@ -188,6 +188,23 @@ export async function createInvestor(formData: FormData) {
   redirect(`/admin?tab=panel&investor=${investor.slug}`);
 }
 
+export async function deleteInvestor(formData: FormData) {
+  const slug = String(formData.get("slug") ?? "").trim();
+
+  if (!slug) {
+    redirectWithInvestorError("delete");
+  }
+
+  const { supabase } = await getAuthorizedTraderClient();
+  const { error } = await supabase.from("investors").delete().eq("slug", slug);
+
+  if (error) {
+    redirectWithInvestorError("delete");
+  }
+
+  redirect("/admin?tab=panel");
+}
+
 export async function changeAdminPassword(formData: FormData) {
   const next = getSafeNext(formData.get("next"));
   const currentPassword = String(formData.get("current_password") ?? "");
