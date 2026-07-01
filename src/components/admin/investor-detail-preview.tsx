@@ -43,8 +43,10 @@ import { InvestorStatusPill } from "./investor-table";
 
 type MovementActionType = "contribution" | "withdrawal";
 
-const inputClassName =
-  "h-9 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
+const compactInputClassName =
+  "h-8 w-full rounded-md border bg-background/45 px-2.5 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
+const fieldLabelClassName =
+  "text-[0.68rem] font-semibold uppercase tracking-[0.02em] text-muted-foreground";
 const defaultDisplayMovementNotes = {
   contribution: "Aportaci\u00f3n parcial",
   withdrawal: "Retirada parcial",
@@ -80,11 +82,16 @@ function MovementSubmitButton({ isContribution }: { isContribution: boolean }) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="sm" disabled={pending}>
+    <Button
+      type="submit"
+      size="sm"
+      className="h-7 justify-self-end px-2.5"
+      disabled={pending}
+    >
       {pending
         ? "Guardando..."
         : isContribution
-          ? "Guardar aportación"
+          ? "Guardar aportaci\u00f3n"
           : "Guardar retirada"}
     </Button>
   );
@@ -94,20 +101,37 @@ function MovementUpdateButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="sm" disabled={pending}>
+    <Button
+      type="submit"
+      size="sm"
+      className="h-7 px-2.5"
+      disabled={pending}
+    >
       <Save data-icon="inline-start" />
-      {pending ? "Guardando..." : "Guardar movimiento"}
+      {pending ? "Guardando..." : "Guardar"}
     </Button>
   );
 }
 
-function MovementDeleteButton() {
+function MovementDeleteButton({ movementLabel }: { movementLabel: string }) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" variant="destructive" size="sm" disabled={pending}>
+    <Button
+      type="submit"
+      formAction={deleteInvestorMovement}
+      variant="ghost"
+      size="sm"
+      className="h-7 px-2 text-danger hover:bg-danger-soft hover:text-danger"
+      disabled={pending}
+      onClick={(event) => {
+        if (!window.confirm(`Eliminar este movimiento: ${movementLabel}?`)) {
+          event.preventDefault();
+        }
+      }}
+    >
       <Trash2 data-icon="inline-start" />
-      {pending ? "Eliminando..." : "Eliminar movimiento"}
+      {pending ? "Eliminando..." : "Eliminar"}
     </Button>
   );
 }
@@ -124,18 +148,18 @@ function MovementActionForm({
   const defaultNote = defaultDisplayMovementNotes[type];
 
   return (
-    <details className="group rounded-lg border bg-background/28">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold text-card-foreground transition-colors hover:bg-secondary/35 [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-md border border-border/80 bg-background/20">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-card-foreground transition-colors hover:bg-secondary/30 [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2">
           <span
             className={cn(
-              "grid size-7 shrink-0 place-items-center rounded-md border",
+              "grid size-6 shrink-0 place-items-center rounded-md border",
               isContribution
                 ? "bg-positive-soft text-positive"
                 : "bg-danger-soft text-danger",
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-3.5" />
           </span>
           {isContribution ? "Nueva aportación" : "Nueva retirada"}
         </span>
@@ -143,42 +167,39 @@ function MovementActionForm({
           +
         </span>
       </summary>
-      <form action={addInvestorMovement} className="grid gap-3 border-t p-3">
+      <form
+        action={addInvestorMovement}
+        className="grid gap-2.5 border-t p-2.5"
+      >
         <input type="hidden" name="slug" value={investorSlug} />
         <input type="hidden" name="movement_type" value={type} />
-        <label className="grid gap-1.5">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">
-            Fecha
-          </span>
+        <label className="grid gap-1">
+          <span className={fieldLabelClassName}>Fecha</span>
           <input
             type="date"
             name="movement_date"
-            className={inputClassName}
+            className={compactInputClassName}
             required
           />
         </label>
-        <label className="grid gap-1.5">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">
-            Importe
-          </span>
+        <label className="grid gap-1">
+          <span className={fieldLabelClassName}>Importe</span>
           <input
             name="amount"
             type="text"
             inputMode="decimal"
             placeholder="0,00"
-            className={cn(inputClassName, "tabular-nums")}
+            className={cn(compactInputClassName, "tabular-nums")}
             required
           />
         </label>
-        <label className="grid gap-1.5">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">
-            Concepto
-          </span>
+        <label className="grid gap-1">
+          <span className={fieldLabelClassName}>Concepto</span>
           <input
             name="note"
             type="text"
             defaultValue={defaultNote}
-            className={inputClassName}
+            className={compactInputClassName}
           />
         </label>
         <MovementSubmitButton isContribution={isContribution} />
@@ -236,18 +257,16 @@ function MovementEditForm({
   }
 
   return (
-    <div className="mt-3 grid gap-3 rounded-md border bg-background/28 p-3">
-      <form action={updateInvestorMovement} className="grid gap-3">
+    <div className="mt-2 rounded-md border border-border/70 bg-background/20 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+      <form action={updateInvestorMovement} className="grid gap-2.5">
         <input type="hidden" name="slug" value={investorSlug} />
         <input type="hidden" name="movement_id" value={movement.sourceId} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1.5">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
-              Tipo
-            </span>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="grid gap-1">
+            <span className={fieldLabelClassName}>Tipo</span>
             <select
               name="movement_type"
-              className={inputClassName}
+              className={compactInputClassName}
               value={selectedType}
               onChange={(event) => {
                 const nextType =
@@ -267,67 +286,55 @@ function MovementEditForm({
               <option value="withdrawal">Retirada</option>
             </select>
           </label>
-          <label className="grid gap-1.5">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
-              Fecha
-            </span>
+          <label className="grid gap-1">
+            <span className={fieldLabelClassName}>Fecha</span>
             <input
               type="date"
               name="movement_date"
-              className={inputClassName}
+              className={compactInputClassName}
               defaultValue={movement.date}
               required
             />
           </label>
-          <label className="grid gap-1.5">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
-              Importe
-            </span>
+          <label className="grid gap-1">
+            <span className={fieldLabelClassName}>Importe</span>
             <input
               name="amount"
               type="text"
               inputMode="decimal"
-              className={cn(inputClassName, "tabular-nums")}
+              className={cn(compactInputClassName, "tabular-nums")}
               defaultValue={String(movement.amount)}
               required
             />
           </label>
-          <label className="grid gap-1.5">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
-              Concepto
-            </span>
+          <label className="grid gap-1">
+            <span className={fieldLabelClassName}>Concepto</span>
             <input
               name="note"
               type="text"
-              className={inputClassName}
+              className={compactInputClassName}
               value={noteValue}
               onChange={(event) => setNoteValue(event.target.value)}
             />
           </label>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <MovementUpdateButton />
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-2">
+          <MovementDeleteButton
+            movementLabel={getMovementDisplayNote(movement)}
+          />
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2.5"
+              onClick={onCancel}
+            >
+              Cancelar
+            </Button>
+            <MovementUpdateButton />
+          </div>
         </div>
-      </form>
-      <form
-        action={deleteInvestorMovement}
-        className="flex justify-end border-t pt-3"
-        onSubmit={(event) => {
-          if (
-            !window.confirm(
-              `Eliminar este movimiento: ${getMovementDisplayNote(movement)}?`,
-            )
-          ) {
-            event.preventDefault();
-          }
-        }}
-      >
-        <input type="hidden" name="slug" value={investorSlug} />
-        <input type="hidden" name="movement_id" value={movement.sourceId} />
-        <MovementDeleteButton />
       </form>
     </div>
   );
