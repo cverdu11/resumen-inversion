@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import Link from "next/link";
 import {
   BarChart3,
-  CalendarDays,
+  ChevronDown,
   Coins,
   Database,
+  LogOut,
   TrendingUp,
   UsersRound,
 } from "lucide-react";
@@ -17,7 +18,6 @@ import { PasswordChangeForm } from "@/components/admin/password-change-form";
 import { WeeklyProfitabilityPanel } from "@/components/admin/weekly-profitability-panel";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   getAdminOverview,
   type MockInvestor,
@@ -65,6 +65,8 @@ export function AdminDashboard({
     (investor) => investor.slug === selectedInvestorSlug,
   );
   const selectedInvestorId = selectedInvestor?.id ?? "";
+  const traderEmail = userEmail ?? "Usuario autenticado";
+  const traderInitial = traderEmail.trim().charAt(0).toUpperCase() || "T";
   const currentAdminPath =
     activeTab === "rentabilidad"
       ? "/admin?tab=rentabilidad"
@@ -146,33 +148,65 @@ export function AdminDashboard({
               Gestión de inversores y rentabilidad semanal
             </p>
           </div>
-          <Card className="w-full max-w-md border-border lg:w-auto">
-            <CardContent className="flex flex-col gap-3 p-4">
-              <div className="flex items-center gap-4">
-                <div className="grid size-5 shrink-0 place-items-center text-muted-foreground">
-                  <CalendarDays className="size-5" strokeWidth={1.9} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-muted-foreground">
+          <div className="relative w-full sm:w-auto lg:shrink-0">
+            <details
+              className="group/account"
+              open={passwordError || passwordStatus ? true : undefined}
+            >
+              <summary
+                aria-label="Abrir menú de cuenta"
+                className="flex min-h-12 w-full cursor-pointer list-none items-center gap-3 rounded-full border bg-background/35 px-2 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-secondary/70 sm:w-[320px] [&::-webkit-details-marker]:hidden"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary ring-1 ring-primary/25">
+                  {traderInitial}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium text-muted-foreground">
                     Sesión trader
+                  </span>
+                  <span className="block truncate text-sm font-semibold text-card-foreground">
+                    {traderEmail}
+                  </span>
+                </span>
+                <ChevronDown
+                  className="size-4 shrink-0 text-muted-foreground transition-transform group-open/account:rotate-180"
+                  strokeWidth={1.9}
+                />
+              </summary>
+
+              <div className="glass-panel absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-lg border p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42)] sm:left-auto sm:w-[360px]">
+                <div className="rounded-md bg-secondary/45 px-5 py-5 text-center">
+                  <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/15 text-lg font-bold text-primary ring-1 ring-primary/25">
+                    {traderInitial}
+                  </span>
+                  <p className="mt-3 text-sm font-semibold text-card-foreground">
+                    Cuenta trader
                   </p>
-                  <p className="mt-1 truncate text-sm font-medium text-card-foreground">
-                    {userEmail ?? "Usuario autenticado"}
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    {traderEmail}
                   </p>
                 </div>
-                <form action="/auth/signout" method="post">
-                  <Button variant="ghost" size="sm" type="submit">
-                    Salir
-                  </Button>
-                </form>
+
+                <div className="mt-2 flex flex-col gap-1">
+                  <PasswordChangeForm
+                    next={currentAdminPath}
+                    passwordError={passwordError}
+                    passwordStatus={passwordStatus}
+                  />
+                  <form action="/auth/signout" method="post">
+                    <Button
+                      className="h-11 w-full justify-start rounded-md px-3 text-sm"
+                      variant="ghost"
+                      type="submit"
+                    >
+                      <LogOut data-icon="inline-start" strokeWidth={1.9} />
+                      Salir
+                    </Button>
+                  </form>
+                </div>
               </div>
-              <PasswordChangeForm
-                next={currentAdminPath}
-                passwordError={passwordError}
-                passwordStatus={passwordStatus}
-              />
-            </CardContent>
-          </Card>
+            </details>
+          </div>
         </header>
 
         <nav aria-label="Secciones del panel trader">

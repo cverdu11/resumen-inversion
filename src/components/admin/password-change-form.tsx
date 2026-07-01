@@ -1,12 +1,13 @@
 "use client";
 
-import { KeyRound } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, KeyRound } from "lucide-react";
 
 import { changeAdminPassword } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 
 const inputClassName =
-  "h-9 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
+  "h-10 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
+const fieldClassName = "flex flex-col gap-1.5";
 
 function getPasswordErrorMessage(error?: string) {
   if (error === "missing") {
@@ -53,27 +54,36 @@ export function PasswordChangeForm({
 
   return (
     <details
-      className="group border-t pt-3"
+      className="group/password rounded-md"
       open={errorMessage || successMessage ? true : undefined}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-1.5 text-sm font-semibold text-card-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-        <span className="flex min-w-0 items-center gap-2">
-          <KeyRound className="size-4 shrink-0 text-muted-foreground" />
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3 text-sm font-medium text-card-foreground transition-colors hover:bg-secondary/70 hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-muted-foreground">
+            <KeyRound className="size-4" strokeWidth={1.9} />
+          </span>
           Cambiar contraseña
         </span>
-        <span className="text-lg leading-none text-muted-foreground group-open:rotate-45">
-          +
-        </span>
+        <ChevronDown
+          className="size-4 shrink-0 text-muted-foreground transition-transform group-open/password:rotate-180"
+          strokeWidth={1.9}
+        />
       </summary>
-      <form action={changeAdminPassword} className="mt-3 grid gap-3">
+      <form action={changeAdminPassword} className="flex flex-col gap-3 px-3 pb-3 pt-2">
         <input type="hidden" name="next" value={next} />
         {successMessage ? (
-          <p className="text-sm font-medium text-positive">{successMessage}</p>
+          <p className="flex items-start gap-2 rounded-md bg-positive-soft px-3 py-2 text-xs font-medium text-positive">
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
+            {successMessage}
+          </p>
         ) : null}
         {errorMessage ? (
-          <p className="text-sm font-medium text-danger">{errorMessage}</p>
+          <p className="flex items-start gap-2 rounded-md bg-danger-soft px-3 py-2 text-xs font-medium text-danger">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
+            {errorMessage}
+          </p>
         ) : null}
-        <label className="grid gap-1.5">
+        <label className={fieldClassName}>
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Contraseña actual
           </span>
@@ -85,7 +95,7 @@ export function PasswordChangeForm({
             required
           />
         </label>
-        <label className="grid gap-1.5">
+        <label className={fieldClassName}>
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Nueva contraseña
           </span>
@@ -98,7 +108,7 @@ export function PasswordChangeForm({
             required
           />
         </label>
-        <label className="grid gap-1.5">
+        <label className={fieldClassName}>
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Confirmar nueva contraseña
           </span>
@@ -111,7 +121,7 @@ export function PasswordChangeForm({
             required
           />
         </label>
-        <Button type="submit" size="sm">
+        <Button className="mt-1 w-full" type="submit" size="sm">
           Guardar contraseña
         </Button>
       </form>
