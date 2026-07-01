@@ -91,6 +91,7 @@ const weeklyStatusOptionStyle: Record<
 
 const fieldClassName =
   "h-8 w-full rounded-md border bg-background/45 px-2.5 text-sm text-card-foreground outline-none transition-colors focus:border-primary/70 focus:ring-2 focus:ring-primary/20";
+const openMonthsStorageKey = "resumen-inversion:weekly-profitability:open-months";
 
 type PeriodSort = "desc" | "asc";
 
@@ -159,6 +160,32 @@ function parseOpenMonthIds(openMonths?: string) {
     .filter((monthId) => /^\d{4}-\d{2}$/.test(monthId));
 
   return monthIds.length > 0 ? monthIds : null;
+}
+
+function saveOpenMonthIds(monthIds: string[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(openMonthsStorageKey, monthIds.join(","));
+  } catch {
+    // Local storage is optional; the current UI state still works without it.
+  }
+}
+
+function readSavedOpenMonthIds() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return parseOpenMonthIds(
+      window.localStorage.getItem(openMonthsStorageKey) ?? "",
+    );
+  } catch {
+    return null;
+  }
 }
 
 function buildMonthlyProfitabilityOverview(
@@ -607,8 +634,8 @@ export function WeeklyProfitabilityPanel({
   weeks: WeeklyProfitabilityItem[];
 }) {
   const [periodSort, setPeriodSort] = useState<PeriodSort>("desc");
-  const [expandedMonthIds, setExpandedMonthIds] = useState<string[] | null>(
-    null,
+  const [expandedMonthIds, setExpandedMonthIds] = useState<string[]>(
+    () => parseOpenMonthIds(openMonths) ?? readSavedOpenMonthIds() ?? [],
   );
   const currentWeek =
     weeks.find((week) => week.isCurrent) ??
@@ -627,31 +654,24 @@ export function WeeklyProfitabilityPanel({
     () => buildMonthlyProfitabilityOverview(weeks, periodSort),
     [periodSort, weeks],
   );
-  const queryOpenMonthIds = useMemo(
-    () => parseOpenMonthIds(openMonths),
-    [openMonths],
-  );
-  const defaultOpenMonthId = monthlyOverview[0]?.id;
   const availableMonthIds = useMemo(
     () => new Set(monthlyOverview.map((summary) => summary.id)),
     [monthlyOverview],
   );
-  const openMonthIds = (
-    expandedMonthIds ??
-    queryOpenMonthIds ??
-    (defaultOpenMonthId !== undefined ? [defaultOpenMonthId] : [])
-  ).filter((monthId) => availableMonthIds.has(monthId));
+  const openMonthIds = expandedMonthIds.filter((monthId) =>
+    availableMonthIds.has(monthId),
+  );
   const openMonthsValue = openMonthIds.join(",");
 
   function toggleMonth(monthId: string) {
     setExpandedMonthIds((currentMonthIds) => {
-      const resolvedMonthIds =
-        currentMonthIds ??
-        (defaultOpenMonthId !== undefined ? [defaultOpenMonthId] : []);
+      const nextMonthIds = currentMonthIds.includes(monthId)
+        ? currentMonthIds.filter((currentMonthId) => currentMonthId !== monthId)
+        : [...currentMonthIds, monthId];
 
-      return resolvedMonthIds.includes(monthId)
-        ? resolvedMonthIds.filter((currentMonthId) => currentMonthId !== monthId)
-        : [...resolvedMonthIds, monthId];
+      saveOpenMonthIds(nextMonthIds);
+
+      return nextMonthIds;
     });
   }
 
