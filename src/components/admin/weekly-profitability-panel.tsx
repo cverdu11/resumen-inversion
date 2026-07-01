@@ -495,7 +495,9 @@ export function WeeklyProfitabilityPanel({
   weeks: WeeklyProfitabilityItem[];
 }) {
   const [periodSort, setPeriodSort] = useState<PeriodSort>("desc");
-  const [expandedMonthId, setExpandedMonthId] = useState("__latest__");
+  const [expandedMonthIds, setExpandedMonthIds] = useState<string[] | null>(
+    null,
+  );
   const currentWeek =
     weeks.find((week) => week.isCurrent) ??
     weeks.find((week) => week.status === "draft");
@@ -513,23 +515,25 @@ export function WeeklyProfitabilityPanel({
     () => buildMonthlyProfitabilityOverview(weeks, periodSort),
     [periodSort, weeks],
   );
-  const activeMonthId =
-    expandedMonthId === "__latest__"
-      ? monthlyOverview[0]?.id
-      : expandedMonthId || null;
+  const defaultOpenMonthId = monthlyOverview[0]?.id;
+  const openMonthIds =
+    expandedMonthIds ??
+    (defaultOpenMonthId !== undefined ? [defaultOpenMonthId] : []);
 
   function toggleMonth(monthId: string) {
-    setExpandedMonthId((currentMonthId) => {
-      const currentActiveMonthId =
-        currentMonthId === "__latest__" ? monthlyOverview[0]?.id : currentMonthId;
+    setExpandedMonthIds((currentMonthIds) => {
+      const resolvedMonthIds =
+        currentMonthIds ??
+        (defaultOpenMonthId !== undefined ? [defaultOpenMonthId] : []);
 
-      return currentActiveMonthId === monthId ? "" : monthId;
+      return resolvedMonthIds.includes(monthId)
+        ? resolvedMonthIds.filter((currentMonthId) => currentMonthId !== monthId)
+        : [...resolvedMonthIds, monthId];
     });
   }
 
   function togglePeriodSort() {
     setPeriodSort((currentSort) => (currentSort === "desc" ? "asc" : "desc"));
-    setExpandedMonthId("__latest__");
   }
 
   return (
@@ -641,7 +645,7 @@ export function WeeklyProfitabilityPanel({
         <div className="md:hidden">
           {monthlyOverview.map((summary) => (
             <MobileMonthRow
-              isExpanded={activeMonthId === summary.id}
+              isExpanded={openMonthIds.includes(summary.id)}
               key={summary.id}
               next={next}
               onToggle={() => toggleMonth(summary.id)}
@@ -669,7 +673,7 @@ export function WeeklyProfitabilityPanel({
           </TableHeader>
           <TableBody>
             {monthlyOverview.map((summary) => {
-              const isExpanded = activeMonthId === summary.id;
+              const isExpanded = openMonthIds.includes(summary.id);
 
               return (
                 <Fragment key={summary.id}>
