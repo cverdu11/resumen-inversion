@@ -22,7 +22,7 @@ export type WeeklyProfitabilityItem = {
   isSaved: boolean;
 };
 
-const weekRangeBeforeCurrent = 5;
+const weekRangeBeforeCurrent = 7;
 const weekRangeAfterCurrent = 1;
 
 const monthFormatter = new Intl.DateTimeFormat("es-ES", {
