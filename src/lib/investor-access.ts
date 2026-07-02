@@ -6,9 +6,9 @@ import { hasSupabaseAdminEnv } from "@/lib/supabase/env";
 
 export type InvestorAccessError =
   | "auth_config"
-  | "auth_create"
-  | "email_config"
-  | "email_send";
+  | "auth_create";
+
+export type InvestorAccessStatus = "manual" | "sent";
 
 type InvestorAccessInput = {
   email: string;
@@ -28,7 +28,7 @@ type InvestorAccessResult =
   | {
       credentials: InvestorAccessCredentials;
       ok: true;
-      status: "sent";
+      status: InvestorAccessStatus;
     }
   | {
       credentials?: InvestorAccessCredentials;
@@ -242,7 +242,7 @@ export async function createAndSendInvestorAccess(
   });
 
   if (!emailResult.ok) {
-    return { ok: false, error: emailResult.error, credentials };
+    return { ok: true, status: "manual", credentials };
   }
 
   return { ok: true, status: "sent", credentials };

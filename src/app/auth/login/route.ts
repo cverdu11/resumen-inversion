@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
+import { hasSupabaseAdminEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
 type LoginRole = "trader" | "investor";
@@ -26,7 +28,8 @@ async function getInvestorForCurrentUser(
   supabase: Awaited<ReturnType<typeof createClient>>,
   email: string,
 ) {
-  const { data, error } = await supabase
+  const dataClient = hasSupabaseAdminEnv() ? createAdminClient() : supabase;
+  const { data, error } = await dataClient
     .from("investors")
     .select("id, slug")
     .ilike("email", email)

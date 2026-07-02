@@ -8,6 +8,7 @@ import {
   normalizeInvestorEmail,
   type InvestorAccessCredentials,
   type InvestorAccessError,
+  type InvestorAccessStatus,
 } from "@/lib/investor-access";
 import { createClient } from "@/lib/supabase/server";
 import type { WeeklyProfitabilityStatus } from "@/lib/weekly-profitability";
@@ -207,7 +208,7 @@ async function redirectWithInvestorAccessResult(
     | {
         credentials?: InvestorAccessCredentials;
         ok: true;
-        status: string;
+        status: InvestorAccessStatus;
       }
     | {
         credentials?: InvestorAccessCredentials;

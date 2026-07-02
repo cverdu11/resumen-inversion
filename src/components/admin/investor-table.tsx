@@ -63,6 +63,8 @@ const editLabelClassName =
 const accessButtonClassName = "h-10 w-full justify-center sm:w-52";
 
 const accessStatusCopy: Record<string, string> = {
+  manual:
+    "Credenciales generadas. Copialas y envialas manualmente al inversor.",
   sent: "Credenciales generadas. Resend ha aceptado el envio del correo.",
 };
 
@@ -71,9 +73,6 @@ const accessErrorCopy: Record<string, string> = {
     "Email guardado, pero falta configurar SUPABASE_SERVICE_ROLE_KEY para crear el usuario de acceso.",
   auth_create: "No se pudo crear o actualizar el usuario de acceso.",
   duplicate_email: "Ese email ya esta asignado a otro inversor.",
-  email_config:
-    "Usuario creado, pero falta configurar RESEND_API_KEY e INVESTOR_ACCESS_EMAIL_FROM para enviar el correo.",
-  email_send: "No se pudo enviar el correo de credenciales.",
   invalid_email: "El email del inversor no es valido.",
   missing_email: "Anade un email al inversor antes de enviar credenciales.",
   trader_email: "Ese email pertenece a una cuenta trader activa.",
