@@ -8,5 +8,5 @@ export async function POST(request: NextRequest) {
 
   await supabase.auth.signOut();
 
-  redirect(new URL("/login", request.url).toString());
+  redirect(new URL("/?login_status=signed_out", request.url).toString());
 }

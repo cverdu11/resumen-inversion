@@ -32,6 +32,7 @@ export function AdminDashboard({
   activeTab,
   databaseInvestors,
   investorError,
+  loginStatus,
   openMonths,
   passwordError,
   passwordStatus,
@@ -44,6 +45,7 @@ export function AdminDashboard({
   activeTab: AdminTab;
   databaseInvestors: MockInvestor[];
   investorError?: string;
+  loginStatus?: string;
   openMonths?: string;
   passwordError?: string;
   passwordStatus?: string;
@@ -144,6 +146,11 @@ export function AdminDashboard({
             <h1 className="text-2xl font-semibold leading-tight tracking-normal text-foreground sm:text-4xl">
               Panel trader
             </h1>
+            {loginStatus === "success" ? (
+              <div className="mt-3 w-fit rounded-md border border-positive/30 bg-positive-soft px-4 py-2 text-sm font-semibold text-positive">
+                Sesión iniciada correctamente.
+              </div>
+            ) : null}
             <p className="mt-2 text-sm text-card-foreground/84 sm:text-lg">
               Gestión de inversores y rentabilidad semanal
             </p>

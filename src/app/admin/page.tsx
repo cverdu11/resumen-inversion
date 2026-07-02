@@ -25,6 +25,7 @@ type AdminPageProps = {
     open_months?: string;
     weekly_error?: string;
     weekly_status?: string;
+    login_status?: string;
   }>;
 };
 
@@ -340,6 +341,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       activeTab={params?.tab === "rentabilidad" ? "rentabilidad" : "panel"}
       databaseInvestors={databaseInvestors}
       investorError={params?.investor_error}
+      loginStatus={params?.login_status}
       passwordError={params?.password_error}
       passwordStatus={params?.password_status}
       openMonths={params?.open_months}

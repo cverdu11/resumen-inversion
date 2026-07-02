@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Coins,
   Database,
+  LogOut,
   Target,
   TrendingDown,
   TrendingUp,
@@ -110,34 +111,64 @@ function ChartLoadingCard() {
   );
 }
 
-export function InvestmentDashboard() {
+type InvestmentDashboardProps = {
+  loginStatus?: string;
+  subtitle?: string;
+  title?: string;
+  userEmail?: string;
+};
+
+export function InvestmentDashboard({
+  loginStatus,
+  subtitle = "Visión general de rendimiento y evolución",
+  title = "Resumen de Inversión",
+  userEmail,
+}: InvestmentDashboardProps) {
   return (
     <main className="dashboard-grid min-h-screen px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto flex max-w-[1780px] flex-col gap-4 sm:gap-5">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold leading-tight tracking-normal text-foreground sm:text-4xl">
-              Resumen de Inversión
+              {title}
             </h1>
             <p className="mt-2 text-sm text-card-foreground/84 sm:text-lg">
-              Visión general de rendimiento y evolución
+              {subtitle}
             </p>
           </div>
-          <Card className="w-full max-w-sm border-border lg:w-auto">
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="grid size-10 shrink-0 place-items-center rounded-md border bg-muted/70 text-muted-foreground">
-                <CalendarDays className="size-5" strokeWidth={1.9} />
+          <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
+            {loginStatus === "success" ? (
+              <div className="rounded-md border border-positive/30 bg-positive-soft px-4 py-2 text-sm font-semibold text-positive">
+                Sesión iniciada correctamente.
               </div>
-              <div className="min-w-0">
-                <p className="text-sm text-muted-foreground">
-                  Datos actualizados al
-                </p>
-                <p className="mt-1 text-base font-medium tabular-nums text-card-foreground">
-                  {dataUpdatedAt}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            ) : null}
+            {userEmail ? (
+              <form action="/auth/signout" method="post">
+                <button
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border bg-background/30 px-4 text-sm font-semibold text-card-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-secondary/70"
+                  type="submit"
+                >
+                  <LogOut className="size-4" strokeWidth={1.9} />
+                  Salir
+                </button>
+              </form>
+            ) : null}
+            <Card className="w-full max-w-sm border-border lg:w-auto">
+              <CardContent className="flex items-center gap-4 p-4">
+                <div className="grid size-10 shrink-0 place-items-center rounded-md border bg-muted/70 text-muted-foreground">
+                  <CalendarDays className="size-5" strokeWidth={1.9} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">
+                    Datos actualizados al
+                  </p>
+                  <p className="mt-1 text-base font-medium tabular-nums text-card-foreground">
+                    {dataUpdatedAt}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </header>
 
         <section className="grid gap-3 min-[380px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
