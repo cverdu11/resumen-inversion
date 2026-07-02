@@ -27,7 +27,6 @@ import {
 import {
   type CapitalMovementItem,
   capitalMovements as defaultCapitalMovements,
-  compoundWeeklyReturn,
   getCapitalMovementsForMonth,
   getWeeklyDataForMonth,
   monthlyInvestmentData,
@@ -63,24 +62,22 @@ function WeeklyBreakdown({
   movements: CapitalMovementItem[];
   weeks: WeeklyInvestmentItem[];
 }) {
-  const compoundReturn = compoundWeeklyReturn(weeks);
-
   return (
     <div className="border-t bg-muted/18 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-card-foreground">
-            Resultado semanal neto
+            Resultado mensual neto
           </p>
           <p className="mt-1 text-xs text-muted-foreground">{month.month}</p>
         </div>
         <p
           className={cn(
             "text-sm font-semibold tabular-nums",
-            valueTone(compoundReturn),
+            valueTone(month.returnPct),
           )}
         >
-          {formatPercent(compoundReturn, { sign: true })}
+          {formatPercent(month.returnPct, { sign: true })}
         </p>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">

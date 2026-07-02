@@ -52,32 +52,10 @@ function getNextMonthStart(monthKey: string) {
   return nextMonth.toISOString().slice(0, 10);
 }
 
-function getDateTime(date: string) {
-  return new Date(`${date}T12:00:00`).getTime();
-}
-
 function getMovementEffect(movement: InvestorDashboardMovementRow) {
   const amount = Number(movement.amount);
 
   return movement.movement_type === "withdrawal" ? -amount : amount;
-}
-
-function getMovementWeekWeight(
-  movementDate: string,
-  weekStart: string,
-  weekEnd: string,
-) {
-  const dayMs = 24 * 60 * 60 * 1000;
-  const startTime = getDateTime(weekStart);
-  const endTime = getDateTime(weekEnd);
-  const movementTime = Math.max(getDateTime(movementDate), startTime);
-  const totalDays = Math.max(1, Math.round((endTime - startTime) / dayMs) + 1);
-  const activeDays = Math.max(
-    0,
-    Math.round((endTime - movementTime) / dayMs) + 1,
-  );
-
-  return Math.min(1, activeDays / totalDays);
 }
 
 function getWeekLabel(weekEnd: string) {
@@ -190,65 +168,9 @@ function buildMonthlyData(
     }
 
     const initialValue = balance;
+    const monthMovements: InvestorDashboardMovementRow[] = [];
     let contributions = 0;
     let withdrawals = 0;
-    let gain = 0;
-    let averageBaseTotal = 0;
-    let savedWeeksCount = 0;
-
-    for (const week of monthWeeks) {
-      while (
-        movementIndex < orderedMovements.length &&
-        orderedMovements[movementIndex].movement_date < week.week_start
-      ) {
-        const movement = orderedMovements[movementIndex];
-        const effect = getMovementEffect(movement);
-        balance += effect;
-        netCapital += effect;
-
-        if (effect >= 0) {
-          contributions += effect;
-        } else {
-          withdrawals += Math.abs(effect);
-        }
-
-        movementIndex += 1;
-      }
-
-      let weeklyBase = balance;
-
-      while (
-        movementIndex < orderedMovements.length &&
-        orderedMovements[movementIndex].movement_date <= week.week_end
-      ) {
-        const movement = orderedMovements[movementIndex];
-        const effect = getMovementEffect(movement);
-        const movementWeight = getMovementWeekWeight(
-          movement.movement_date,
-          week.week_start,
-          week.week_end,
-        );
-
-        weeklyBase += effect * movementWeight;
-        balance += effect;
-        netCapital += effect;
-
-        if (effect >= 0) {
-          contributions += effect;
-        } else {
-          withdrawals += Math.abs(effect);
-        }
-
-        movementIndex += 1;
-      }
-
-      const weeklyGain = (weeklyBase * Number(week.return_pct)) / 100;
-
-      averageBaseTotal += weeklyBase;
-      balance += weeklyGain;
-      gain += weeklyGain;
-      savedWeeksCount += 1;
-    }
 
     while (
       movementIndex < orderedMovements.length &&
@@ -256,8 +178,7 @@ function buildMonthlyData(
     ) {
       const movement = orderedMovements[movementIndex];
       const effect = getMovementEffect(movement);
-      balance += effect;
-      netCapital += effect;
+      monthMovements.push(movement);
 
       if (effect >= 0) {
         contributions += effect;
@@ -268,10 +189,36 @@ function buildMonthlyData(
       movementIndex += 1;
     }
 
+    const monthMovementTotal = monthMovements.reduce(
+      (total, movement) => total + getMovementEffect(movement),
+      0,
+    );
+    const weeklyBases = monthWeeks.map((week) => {
+      const weeklyMovementEffect = monthMovements
+        .filter((movement) => movement.movement_date <= week.week_end)
+        .reduce((total, movement) => total + getMovementEffect(movement), 0);
+
+      return initialValue + weeklyMovementEffect;
+    });
+    const gain = monthWeeks.reduce((total, week, index) => {
+      const weeklyBase = weeklyBases[index] ?? initialValue;
+
+      return weeklyBase > 0
+        ? total + (weeklyBase * Number(week.return_pct)) / 100
+        : total;
+    }, 0);
+    const averageBaseTotal = weeklyBases.reduce(
+      (total, weeklyBase) => total + weeklyBase,
+      0,
+    );
     const averageBase =
-      savedWeeksCount > 0 ? averageBaseTotal / savedWeeksCount : initialValue;
+      monthWeeks.length > 0
+        ? averageBaseTotal / monthWeeks.length
+        : initialValue + monthMovementTotal;
     const returnPct =
       averageBase > 0 ? roundPercent((gain / averageBase) * 100) : 0;
+    balance = initialValue + monthMovementTotal + gain;
+    netCapital += monthMovementTotal;
     const finalValue = roundCurrency(balance);
 
     return {

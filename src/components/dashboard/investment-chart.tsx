@@ -26,7 +26,7 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import {
-  compoundWeeklyReturn,
+  compoundReturn,
   filterDataByRange,
   getWeeklyDataForMonths,
   monthlyInvestmentData,
@@ -280,51 +280,61 @@ function useCompactChart() {
   return isCompact;
 }
 
-function WeeklyRangeSummary({ weeks }: { weeks: WeeklyInvestmentItem[] }) {
-  if (!weeks.length) {
+function RangeSummary({
+  months,
+  weeks,
+}: {
+  months: MonthlyInvestmentItem[];
+  weeks: WeeklyInvestmentItem[];
+}) {
+  if (!months.length) {
     return null;
   }
 
-  const compoundReturn = compoundWeeklyReturn(weeks);
-  const bestWeek = weeks.reduce((best, item) =>
+  const rangeReturn = (compoundReturn(months) - 1) * 100;
+  const bestMonth = months.reduce((best, item) =>
     item.returnPct > best.returnPct ? item : best,
   );
-  const worstWeek = weeks.reduce((worst, item) =>
+  const worstMonth = months.reduce((worst, item) =>
     item.returnPct < worst.returnPct ? item : worst,
   );
-  const positiveWeeks = weeks.filter((item) => item.returnPct >= 0).length;
-  const negativeWeeks = weeks.length - positiveWeeks;
-  const compoundTone =
-    compoundReturn >= 0
+  const positiveMonths = months.filter((item) => item.returnPct >= 0).length;
+  const negativeMonths = months.length - positiveMonths;
+  const rangeTone =
+    rangeReturn >= 0
       ? "bg-positive-soft text-positive"
       : "bg-danger-soft text-danger";
 
   return (
     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border border-border/60 bg-background/35 px-3 py-2 text-[0.72rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:gap-x-3 sm:text-xs">
       <span className="font-medium text-card-foreground/90">
-        Semanal neto
+        Mensual neto
       </span>
       <span
         className={cn(
           "rounded-md px-2 py-0.5 font-semibold tabular-nums",
-          compoundTone,
+          rangeTone,
         )}
       >
-        {formatPercent(compoundReturn, { sign: true })}
+        {formatPercent(rangeReturn, { sign: true })}
       </span>
       <span className="text-muted-foreground">
-        {weeks.length} semanas
+        {months.length} meses
       </span>
       <span className="hidden h-3 w-px bg-border/70 sm:block" />
       <span className="hidden text-muted-foreground sm:inline">
-        {positiveWeeks} positivas / {negativeWeeks} negativas
+        {positiveMonths} positivos / {negativeMonths} negativos
       </span>
       <span className="hidden h-3 w-px bg-border/70 sm:block" />
       <span className="font-medium text-positive tabular-nums">
-        Mejor {formatPercent(bestWeek.returnPct, { sign: true })}
+        Mejor {formatPercent(bestMonth.returnPct, { sign: true })}
       </span>
       <span className="font-medium text-danger tabular-nums">
-        Peor {formatPercent(worstWeek.returnPct, { sign: true })}
+        Peor {formatPercent(worstMonth.returnPct, { sign: true })}
+      </span>
+      <span className="hidden h-3 w-px bg-border/70 sm:block" />
+      <span className="hidden text-muted-foreground sm:inline">
+        {weeks.length} semanas guardadas
       </span>
     </div>
   );
@@ -473,7 +483,7 @@ export function InvestmentChartCard({
               Capital neto aportado
             </div>
           </div>
-          <WeeklyRangeSummary weeks={visibleWeeklyData} />
+          <RangeSummary months={visibleData} weeks={visibleWeeklyData} />
         </div>
         <div>
           <div className="h-[320px] min-w-0 sm:h-[430px]">
