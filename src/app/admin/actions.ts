@@ -359,7 +359,9 @@ export async function createInvestor(formData: FormData) {
       investorSlug: investor.slug,
     });
 
-    redirectWithInvestorAccessResult(investor.slug, accessResult);
+    redirectWithInvestorAccessResult(investor.slug, accessResult, {
+      showInvestor: false,
+    });
   }
 
   redirect(`/admin?investor=${investor.slug}`);
@@ -479,7 +481,9 @@ export async function updateInvestor(formData: FormData) {
       investorSlug: nextSlug,
     });
 
-    redirectWithInvestorAccessResult(nextSlug, accessResult);
+    redirectWithInvestorAccessResult(nextSlug, accessResult, {
+      showInvestor: false,
+    });
   }
 
   redirect(`/admin?investor=${nextSlug}`);
