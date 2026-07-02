@@ -148,22 +148,24 @@ function AccessChoice({
 
 function QuoteCard() {
   return (
-    <div className="w-full max-w-[470px] rounded-[28px] bg-white/10 px-6 py-5 text-white shadow-[0_26px_68px_rgba(0,0,0,0.16)] backdrop-blur-md">
+    <div className="w-full max-w-[440px] rounded-[24px] bg-white/[0.11] px-5 py-5 text-white shadow-[0_24px_60px_rgba(0,0,0,0.18)] backdrop-blur-md">
       <div className="flex items-center gap-4">
-        <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-white shadow-[0_16px_34px_rgba(0,0,0,0.16)]">
-          <OilDropIcon className="size-9 text-black" />
+        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white shadow-[0_16px_34px_rgba(0,0,0,0.16)]">
+          <OilDropIcon className="size-8 text-black" />
         </span>
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.28em] text-white/78">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-white/78">
             Cotizacion crudo
           </p>
           <p className="mt-2 text-sm font-bold text-white">CL1! · USD/BLL</p>
         </div>
       </div>
-      <div className="mt-6 flex items-end justify-between gap-5">
-        <p className="text-6xl font-black leading-none text-white">67.76</p>
+      <div className="mt-5 flex items-end justify-between gap-5">
+        <p className="text-5xl font-black leading-none text-white sm:text-6xl">
+          67.76
+        </p>
         <div
-          className="mb-2 flex items-center gap-2 rounded-full bg-white/14 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white/72"
+          className="mb-2 flex items-center gap-2 rounded-full bg-white/14 px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-white/72"
           title="Pendiente de conectar a un proveedor de cotizacion en vivo"
         >
           <Eye className="size-4" strokeWidth={1.9} />
@@ -262,19 +264,15 @@ export function LandingPage({
           </form>
         </aside>
 
-        <section className="relative min-h-[520px] overflow-hidden px-8 py-10 text-white sm:px-12 lg:px-16">
+        <section className="relative flex min-h-screen items-center overflow-hidden px-8 py-10 text-white sm:px-12 lg:px-16 xl:px-20">
           <AbstractField />
 
-          <div className="relative z-10 flex min-h-[580px] flex-col justify-center gap-10 lg:block">
-            <div className="lg:absolute lg:left-0 lg:top-[175px]">
-              <QuoteCard />
-            </div>
+          <div className="relative z-10 w-full max-w-[720px] lg:-translate-y-12">
+            <QuoteCard />
 
-            <div className="lg:absolute lg:left-0 lg:right-0 lg:top-[405px]">
-              <p className="text-[4.4rem] font-black leading-[0.85] tracking-normal text-white sm:text-[6.2rem] lg:text-[6.9rem]">
-                Welcome.
-              </p>
-            </div>
+            <p className="mt-9 text-[4.2rem] font-black leading-[0.88] tracking-normal text-white sm:text-[5.6rem] lg:text-[6.2rem] xl:text-[6.7rem]">
+              Welcome.
+            </p>
           </div>
         </section>
       </section>
