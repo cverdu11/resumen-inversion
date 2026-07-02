@@ -26,15 +26,11 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import {
-  compoundReturn,
   filterDataByRange,
-  getWeeklyDataForMonths,
   monthlyInvestmentData,
   rangeOptions,
-  weeklyInvestmentData,
   type MonthlyInvestmentItem,
   type RangeKey,
-  type WeeklyInvestmentItem,
 } from "@/lib/investment-data";
 import {
   formatAxisMonth,
@@ -280,72 +276,24 @@ function useCompactChart() {
   return isCompact;
 }
 
-function RangeSummary({
-  months,
-  weeks,
-}: {
-  months: MonthlyInvestmentItem[];
-  weeks: WeeklyInvestmentItem[];
-}) {
-  if (!months.length) {
-    return null;
-  }
-
-  const rangeReturn = (compoundReturn(months) - 1) * 100;
-  const bestMonth = months.reduce((best, item) =>
-    item.returnPct > best.returnPct ? item : best,
+function getChartStartValue(data: MonthlyInvestmentItem[]) {
+  const firstFundedMonth = data.find(
+    (item) =>
+      item.netCapitalContributed > 0 || item.initialValue > 0 || item.finalValue > 0,
   );
-  const worstMonth = months.reduce((worst, item) =>
-    item.returnPct < worst.returnPct ? item : worst,
-  );
-  const positiveMonths = months.filter((item) => item.returnPct >= 0).length;
-  const negativeMonths = months.length - positiveMonths;
-  const rangeTone =
-    rangeReturn >= 0
-      ? "bg-positive-soft text-positive"
-      : "bg-danger-soft text-danger";
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border border-border/60 bg-background/35 px-3 py-2 text-[0.72rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:gap-x-3 sm:text-xs">
-      <span className="font-medium text-card-foreground/90">
-        Mensual neto
-      </span>
-      <span
-        className={cn(
-          "rounded-md px-2 py-0.5 font-semibold tabular-nums",
-          rangeTone,
-        )}
-      >
-        {formatPercent(rangeReturn, { sign: true })}
-      </span>
-      <span className="text-muted-foreground">
-        {months.length} meses
-      </span>
-      <span className="hidden h-3 w-px bg-border/70 sm:block" />
-      <span className="hidden text-muted-foreground sm:inline">
-        {positiveMonths} positivos / {negativeMonths} negativos
-      </span>
-      <span className="hidden h-3 w-px bg-border/70 sm:block" />
-      <span className="font-medium text-positive tabular-nums">
-        Mejor {formatPercent(bestMonth.returnPct, { sign: true })}
-      </span>
-      <span className="font-medium text-danger tabular-nums">
-        Peor {formatPercent(worstMonth.returnPct, { sign: true })}
-      </span>
-      <span className="hidden h-3 w-px bg-border/70 sm:block" />
-      <span className="hidden text-muted-foreground sm:inline">
-        {weeks.length} semanas guardadas
-      </span>
-    </div>
+    firstFundedMonth?.netCapitalContributed ||
+    firstFundedMonth?.initialValue ||
+    firstFundedMonth?.finalValue ||
+    0
   );
 }
 
 export function InvestmentChartCard({
   monthlyData = monthlyInvestmentData,
-  weeklyData = weeklyInvestmentData,
 }: {
   monthlyData?: MonthlyInvestmentItem[];
-  weeklyData?: WeeklyInvestmentItem[];
 }) {
   const [range, setRange] = useState<RangeKey>("TODO");
   const isCompactChart = useCompactChart();
@@ -353,11 +301,10 @@ export function InvestmentChartCard({
     () => filterDataByRange(monthlyData, range),
     [monthlyData, range],
   );
-  const visibleWeeklyData = useMemo(
-    () => getWeeklyDataForMonths(visibleData, weeklyData),
-    [visibleData, weeklyData],
+  const periodStartValue = useMemo(
+    () => getChartStartValue(visibleData),
+    [visibleData],
   );
-  const periodStartValue = visibleData[0]?.initialValue ?? 0;
   const chartData = useMemo<ChartDatum[]>(
     () =>
       visibleData.reduce<ChartDatum[]>((items, item) => {
@@ -392,11 +339,17 @@ export function InvestmentChartCard({
     ];
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const padding = Math.max(260, (max - min) * 0.18);
+    const lowerBound =
+      periodStartValue > 0 ? Math.min(min, periodStartValue * 0.8) : min;
+    const upperPadding = Math.max(
+      500,
+      periodStartValue * 0.04,
+      (max - lowerBound) * 0.14,
+    );
 
     return [
-      Math.floor((min - padding) / 100) * 100,
-      Math.ceil((max + padding) / 100) * 100,
+      Math.floor(lowerBound / 1000) * 1000,
+      Math.ceil((max + upperPadding) / 1000) * 1000,
     ];
   }, [chartData, periodStartValue]);
   const ticks = useMemo(() => getTickDates(chartData), [chartData]);
@@ -409,11 +362,7 @@ export function InvestmentChartCard({
   );
   const yAxisWidth = isCompactChart ? 68 : 76;
 
-  const startDatum = chartData[0];
   const latestDatum = chartData.at(-1);
-  const startY = periodStartValue;
-  const startTitle = formatCurrency(periodStartValue);
-  const startDetail = undefined;
   const periodReturnPct = latestDatum?.periodReturnPct ?? 0;
   const investmentIsPositive = periodReturnPct >= 0;
   const valueStroke = investmentIsPositive ? "#28e184" : "#ff5d5d";
@@ -483,7 +432,6 @@ export function InvestmentChartCard({
               Capital neto aportado
             </div>
           </div>
-          <RangeSummary months={visibleData} weeks={visibleWeeklyData} />
         </div>
         <div>
           <div className="h-[320px] min-w-0 sm:h-[430px]">
@@ -516,6 +464,8 @@ export function InvestmentChartCard({
                 <YAxis
                   width={yAxisWidth}
                   domain={yDomain}
+                  allowDecimals={false}
+                  tickCount={5}
                   tickFormatter={(value) => formatCompactCurrency(Number(value))}
                   tickLine={false}
                   axisLine={{ stroke: "rgba(148, 163, 184, 0.34)" }}
@@ -567,28 +517,6 @@ export function InvestmentChartCard({
                     fill: valueStroke,
                   }}
                 />
-                {startDatum ? (
-                  <ReferenceDot
-                    x={startDatum.date}
-                    y={startY}
-                    r={isCompactChart ? 4 : 5}
-                    fill="#94a3b8"
-                    stroke="#e2e8f0"
-                    strokeWidth={2}
-                  >
-                    <Label
-                      content={(props) => (
-                        <AnnotationLabel
-                          {...props}
-                          title={startTitle}
-                          detail={startDetail}
-                          tone="neutral"
-                          offsetX={isCompactChart ? 8 : 12}
-                        />
-                      )}
-                    />
-                  </ReferenceDot>
-                ) : null}
                 {latestDatum ? (
                   <ReferenceDot
                     x={latestDatum.date}

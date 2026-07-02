@@ -315,7 +315,6 @@ export function InvestmentDashboard({
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px] 2xl:grid-cols-[minmax(0,1fr)_430px]">
           <InvestmentChartCard
             monthlyData={data.monthlyData}
-            weeklyData={data.weeklyData}
           />
           <InsightsPanel
             investmentSummary={data.summary}
