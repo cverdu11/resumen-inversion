@@ -82,7 +82,7 @@ function AbstractField() {
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <div className="absolute -left-20 top-12 h-[520px] w-[560px] rounded-full bg-[#d9d0b8]/24 blur-3xl" />
       <div className="absolute left-[24%] top-[-16%] h-[680px] w-[340px] rotate-[31deg] rounded-full bg-[#f3ead2]/60 blur-2xl" />
-      <div className="absolute bottom-[-24%] right-[-8%] h-[520px] w-[520px] rounded-full bg-[#53638f]/44 blur-3xl" />
+      <div className="absolute bottom-[-24%] right-[-8%] h-[520px] w-[520px] rounded-full bg-[#0f172a]/58 blur-3xl" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.17),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_48%)]" />
     </div>
   );
@@ -182,8 +182,8 @@ export function LandingPage({
   const message = getLoginMessage(loginError, loginStatus);
 
   return (
-    <main className="min-h-screen bg-[#263263] px-4 py-6 text-[#171b25] sm:px-6 lg:grid lg:place-items-center">
-      <section className="relative mx-auto grid min-h-[660px] w-full max-w-[1180px] overflow-hidden rounded-[28px] bg-[#111832] shadow-[0_34px_90px_rgba(9,13,31,0.38)] lg:grid-cols-[370px_minmax(0,1fr)]">
+    <main className="min-h-screen bg-[#020617] px-4 py-6 text-[#171b25] sm:px-6 lg:grid lg:place-items-center">
+      <section className="relative mx-auto grid min-h-[660px] w-full max-w-[1180px] overflow-hidden rounded-[28px] bg-[#050914] shadow-[0_34px_90px_rgba(0,0,0,0.48)] lg:grid-cols-[370px_minmax(0,1fr)]">
         <aside className="relative z-10 flex flex-col bg-[#f7f5ef] px-7 py-7 sm:px-10 sm:py-9">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-[0_10px_28px_rgba(23,27,37,0.08)]">
