@@ -1,8 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Eye, LockKeyhole, Mail, UserRound } from "lucide-react";
 
-import { loginFromLanding } from "@/app/login/actions";
-
 type LoginRole = "trader" | "investor";
 
 function getSelectedRole(role?: string): LoginRole {
@@ -48,7 +46,14 @@ function getLoginMessage(error?: string, status?: string) {
   if (error === "session_required") {
     return {
       tone: "error" as const,
-      text: "Inicia sesion para acceder al panel inversor.",
+      text: "Inicia sesion para acceder al panel seleccionado.",
+    };
+  }
+
+  if (error === "server") {
+    return {
+      tone: "error" as const,
+      text: "No se pudo validar el acceso. Intentalo de nuevo.",
     };
   }
 
@@ -107,7 +112,7 @@ function LoginField({
       <span className="flex h-11 items-center gap-3 rounded-full border border-[#171b25]/10 bg-white px-4 text-[#171b25] shadow-[0_10px_24px_rgba(23,27,37,0.05)]">
         <Icon className="size-4 shrink-0" strokeWidth={1.9} />
         <input
-          className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-[#8b8d97]"
+          className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none selection:bg-transparent selection:text-[#171b25] placeholder:text-[#8b8d97]"
           name={name}
           type={type}
           aria-label={label}
@@ -198,8 +203,9 @@ export function LandingPage({
           </div>
 
           <form
-            action={loginFromLanding}
+            action="/auth/login"
             className="mt-14 flex flex-1 flex-col justify-center"
+            method="post"
           >
             <div className="mx-auto grid size-20 place-items-center rounded-full border border-[#171b25]/10 bg-white shadow-[0_18px_34px_rgba(23,27,37,0.08)]">
               <UserRound className="size-10" strokeWidth={1.7} />
@@ -248,7 +254,7 @@ export function LandingPage({
             </div>
 
             <button
-              className="mt-8 flex h-12 items-center justify-center rounded-full bg-[#171b25] px-5 text-sm font-black uppercase tracking-[0.1em] text-white shadow-[0_18px_34px_rgba(23,27,37,0.22)] transition-transform hover:-translate-y-0.5"
+              className="mt-8 flex h-12 cursor-pointer items-center justify-center rounded-full bg-[#171b25] px-5 text-sm font-black uppercase tracking-[0.1em] text-white shadow-[0_18px_34px_rgba(23,27,37,0.22)] transition-transform hover:-translate-y-0.5"
               type="submit"
             >
               Login

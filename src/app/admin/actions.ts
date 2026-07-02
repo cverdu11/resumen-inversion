@@ -79,14 +79,14 @@ async function getAuthorizedTraderClient() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login?next=/admin");
+    redirect("/?role=trader&login_error=session_required");
   }
 
   const { data: isTrader } = await supabase.rpc("is_trader");
 
   if (!isTrader) {
     await supabase.auth.signOut();
-    redirect("/login?error=unauthorized");
+    redirect("/?role=trader&login_error=unauthorized_trader");
   }
 
   return { supabase, user };
@@ -515,7 +515,7 @@ export async function changeAdminPassword(formData: FormData) {
   const { supabase, user } = await getAuthorizedTraderClient();
 
   if (!user.email) {
-    redirect("/login?next=/admin");
+    redirect("/?role=trader&login_error=session_required");
   }
 
   const { error: signInError } = await supabase.auth.signInWithPassword({

@@ -293,14 +293,14 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login?next=/admin");
+    redirect("/?role=trader&login_error=session_required");
   }
 
   const { data: isTrader } = await supabase.rpc("is_trader");
 
   if (!isTrader) {
     await supabase.auth.signOut();
-    redirect("/login?error=unauthorized");
+    redirect("/?role=trader&login_error=unauthorized_trader");
   }
 
   const { data: investorRows } = await supabase
