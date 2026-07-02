@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   BarChart3,
-  CalendarDays,
   ChevronDown,
   Coins,
   Database,
@@ -14,6 +13,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { changeInvestorPassword } from "@/app/inversor/actions";
+import { PasswordChangeForm } from "@/components/admin/password-change-form";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { MonthlySummaryTable } from "@/components/dashboard/monthly-summary-table";
@@ -80,6 +81,9 @@ export type InvestmentDashboardData = {
 type InvestmentDashboardProps = {
   dashboardData?: InvestmentDashboardData;
   loginStatus?: string;
+  passwordError?: string;
+  passwordStatus?: string;
+  requiresPasswordChange?: boolean;
   subtitle?: string;
   title?: string;
   userEmail?: string;
@@ -88,6 +92,9 @@ type InvestmentDashboardProps = {
 export function InvestmentDashboard({
   dashboardData,
   loginStatus,
+  passwordError,
+  passwordStatus,
+  requiresPasswordChange,
   subtitle = "Vision general de rendimiento y evolucion",
   title = "Resumen de Inversion",
   userEmail,
@@ -105,7 +112,7 @@ export function InvestmentDashboard({
   const investorEmail = userEmail ?? "Usuario autenticado";
   const investorInitial = investorEmail.trim().charAt(0).toUpperCase() || "I";
   const [showLoginToast, setShowLoginToast] = useState(
-    loginStatus === "success",
+    loginStatus === "success" && !requiresPasswordChange,
   );
   const returnTone =
     investmentSummary.totalReturnPct >= 0 ? "positive" : "negative";
@@ -169,7 +176,7 @@ export function InvestmentDashboard({
   ] as const;
 
   useEffect(() => {
-    if (loginStatus !== "success") {
+    if (loginStatus !== "success" || requiresPasswordChange) {
       return;
     }
 
@@ -190,7 +197,7 @@ export function InvestmentDashboard({
       window.clearTimeout(hideTimer);
       window.clearTimeout(cleanupTimer);
     };
-  }, [loginStatus]);
+  }, [loginStatus, requiresPasswordChange]);
 
   return (
     <main className="dashboard-grid min-h-screen px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
@@ -207,7 +214,14 @@ export function InvestmentDashboard({
           <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
             <div className="relative w-full sm:w-auto lg:shrink-0">
               {userEmail ? (
-                <details className="group/account">
+                <details
+                  className="group/account"
+                  open={
+                    requiresPasswordChange || passwordError || passwordStatus
+                      ? true
+                      : undefined
+                  }
+                >
                   <summary
                     aria-label="Abrir menu de cuenta"
                     className="flex min-h-12 w-full cursor-pointer list-none items-center gap-3 rounded-full border bg-background/35 px-2 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-secondary/70 sm:w-[320px] [&::-webkit-details-marker]:hidden"
@@ -243,6 +257,13 @@ export function InvestmentDashboard({
                     </div>
 
                     <div className="mt-2 flex flex-col gap-1">
+                      <PasswordChangeForm
+                        forceChange={requiresPasswordChange}
+                        next="/inversor"
+                        passwordAction={changeInvestorPassword}
+                        passwordError={passwordError}
+                        passwordStatus={passwordStatus}
+                      />
                       <form action="/auth/signout" method="post">
                         <Button
                           className="h-11 w-full justify-start rounded-md px-3 text-sm"
@@ -267,21 +288,6 @@ export function InvestmentDashboard({
                 </div>
               ) : null}
             </div>
-            <Card className="w-full max-w-sm border-border lg:w-auto">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="grid size-10 shrink-0 place-items-center rounded-md border bg-muted/70 text-muted-foreground">
-                  <CalendarDays className="size-5" strokeWidth={1.9} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm text-muted-foreground">
-                    Datos actualizados al
-                  </p>
-                  <p className="mt-1 text-base font-medium tabular-nums text-card-foreground">
-                    {data.dataUpdatedAt}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </header>
 

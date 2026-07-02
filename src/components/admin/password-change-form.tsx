@@ -5,6 +5,8 @@ import { AlertCircle, CheckCircle2, ChevronDown, KeyRound } from "lucide-react";
 import { changeAdminPassword } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 
+type PasswordChangeAction = (formData: FormData) => void | Promise<void>;
+
 const inputClassName =
   "h-10 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
 const fieldClassName = "flex flex-col gap-1.5";
@@ -38,11 +40,15 @@ function getPasswordErrorMessage(error?: string) {
 }
 
 export function PasswordChangeForm({
+  forceChange,
   next,
+  passwordAction = changeAdminPassword,
   passwordError,
   passwordStatus,
 }: {
+  forceChange?: boolean;
   next: string;
+  passwordAction?: PasswordChangeAction;
   passwordError?: string;
   passwordStatus?: string;
 }) {
@@ -51,11 +57,16 @@ export function PasswordChangeForm({
     passwordStatus === "updated"
       ? "Contraseña actualizada correctamente."
       : null;
+  const forceChangeMessage = forceChange
+    ? "Por seguridad, cambia la contraseña temporal antes de continuar."
+    : null;
 
   return (
     <details
       className="group/password rounded-md"
-      open={errorMessage || successMessage ? true : undefined}
+      open={
+        forceChangeMessage || errorMessage || successMessage ? true : undefined
+      }
     >
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3 text-sm font-medium text-card-foreground transition-colors hover:bg-secondary/70 hover:text-foreground [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-3">
@@ -69,8 +80,17 @@ export function PasswordChangeForm({
           strokeWidth={1.9}
         />
       </summary>
-      <form action={changeAdminPassword} className="flex flex-col gap-3 px-3 pb-3 pt-2">
+      <form
+        action={passwordAction}
+        className="flex flex-col gap-3 px-3 pb-3 pt-2"
+      >
         <input type="hidden" name="next" value={next} />
+        {forceChangeMessage ? (
+          <p className="flex items-start gap-2 rounded-md bg-warning-soft px-3 py-2 text-xs font-medium text-warning">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
+            {forceChangeMessage}
+          </p>
+        ) : null}
         {successMessage ? (
           <p className="flex items-start gap-2 rounded-md bg-positive-soft px-3 py-2 text-xs font-medium text-positive">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />

@@ -20,6 +20,8 @@ export const metadata: Metadata = {
 type InvestorPageProps = {
   searchParams?: Promise<{
     login_status?: string;
+    password_error?: string;
+    password_status?: string;
   }>;
 };
 
@@ -56,6 +58,10 @@ export default async function InvestorPage({ searchParams }: InvestorPageProps) 
 
   const typedInvestor = investor as InvestorRow;
   const investorName = `${typedInvestor.first_name} ${typedInvestor.last_name}`;
+  const userMetadata = user.user_metadata ?? {};
+  const requiresPasswordChange =
+    userMetadata.must_change_password === true ||
+    (userMetadata.role === "investor" && !userMetadata.password_updated_at);
   const { data: movementRows } = await dataClient
     .from("investor_movements")
     .select("id, movement_type, movement_date, amount, note")
@@ -76,6 +82,9 @@ export default async function InvestorPage({ searchParams }: InvestorPageProps) 
     <InvestmentDashboard
       dashboardData={dashboardData}
       loginStatus={params?.login_status}
+      passwordError={params?.password_error}
+      passwordStatus={params?.password_status}
+      requiresPasswordChange={requiresPasswordChange}
       subtitle={`Resumen privado de ${investorName}`}
       title="Panel inversor"
       userEmail={user.email}

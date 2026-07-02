@@ -116,8 +116,10 @@ async function upsertInvestorAuthUser({
   const userMetadata = {
     investor_id: investorId,
     investor_slug: investorSlug,
+    must_change_password: true,
     name: investorName,
     role: "investor",
+    temporary_password_created_at: new Date().toISOString(),
   };
   const existingUserResult = await findAuthUserByEmail(email);
 
