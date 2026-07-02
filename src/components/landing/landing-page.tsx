@@ -143,9 +143,9 @@ export function LandingPage({
   const message = getLoginMessage(loginError, loginStatus);
 
   return (
-    <main className="min-h-[100svh] bg-[#020617] text-[#171b25] lg:min-h-screen">
-      <section className="relative grid min-h-[100svh] w-full overflow-x-hidden bg-[#050914] lg:min-h-screen lg:grid-cols-[minmax(390px,31vw)_minmax(0,1fr)] lg:overflow-hidden">
-        <aside className="relative z-10 flex min-h-[100svh] flex-col bg-[#f7f5ef] px-7 py-6 sm:px-10 sm:py-9 lg:min-h-screen">
+    <main className="fixed inset-0 h-[100dvh] overflow-hidden bg-[#020617] text-[#171b25] lg:relative lg:inset-auto lg:h-auto lg:min-h-screen">
+      <section className="relative grid h-[100dvh] w-full overflow-hidden bg-[#050914] lg:min-h-screen lg:grid-cols-[minmax(390px,31vw)_minmax(0,1fr)]">
+        <aside className="relative z-10 flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#f7f5ef] px-7 py-6 sm:px-10 sm:py-9 lg:min-h-screen lg:overflow-visible">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-[0_10px_28px_rgba(23,27,37,0.08)]">
               <OilDropIcon className="size-6 text-black" />
