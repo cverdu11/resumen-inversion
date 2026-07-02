@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import { Info, type LucideIcon } from "lucide-react";
 
 import {
   Card,
@@ -7,6 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type KpiTone = "neutral" | "positive" | "negative";
@@ -48,6 +53,7 @@ type KpiCardProps = {
   label: string;
   value: string;
   helper: string;
+  explanation?: string;
   icon: LucideIcon;
   tone: KpiTone;
 };
@@ -56,6 +62,7 @@ export function KpiCard({
   label,
   value,
   helper,
+  explanation,
   icon: Icon,
   tone,
 }: KpiCardProps) {
@@ -64,11 +71,31 @@ export function KpiCard({
   return (
     <Card
       className={cn(
-        "group overflow-hidden transition-transform duration-200 hover:-translate-y-0.5",
+        "group relative overflow-visible transition-transform duration-200 hover:-translate-y-0.5",
         styles.card,
       )}
     >
-      <CardHeader className="flex-row items-start gap-3 p-3 pb-0 sm:gap-4 sm:p-4 sm:pb-0">
+      {explanation ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              aria-label={`Explicar ${label}`}
+              className="absolute right-2.5 top-2.5 z-10 grid size-6 place-items-center rounded-full text-muted-foreground/70 transition-colors hover:bg-secondary/70 hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+              type="button"
+            >
+              <Info className="size-3.5" strokeWidth={2} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent align="end" className="max-w-[260px]" side="top">
+            <p className="font-semibold text-popover-foreground">{label}</p>
+            <p className="mt-1 leading-4 text-popover-foreground/84">
+              {explanation}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+
+      <CardHeader className="flex-row items-start gap-3 p-3 pr-9 pb-0 sm:gap-4 sm:p-4 sm:pr-10 sm:pb-0">
         <div
           className={cn(
             "grid size-10 shrink-0 place-items-center rounded-full ring-1 sm:size-12",

@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   capitalMovements as defaultCapitalMovements,
   dataUpdatedAt as defaultDataUpdatedAt,
@@ -127,6 +128,8 @@ export function InvestmentDashboard({
       helper: `Aportado ${formatWholeCurrency(
         investmentSummary.totalContributions,
       )} - retirado ${formatWholeCurrency(investmentSummary.totalWithdrawals)}`,
+      explanation:
+        "Capital que has aportado menos retiradas. No incluye beneficios ni perdidas de mercado.",
       icon: Database,
       tone: "neutral" as const,
     },
@@ -134,6 +137,8 @@ export function InvestmentDashboard({
       label: "Valor actual",
       value: formatWholeCurrency(investmentSummary.currentValue),
       helper: "Valor de mercado actual",
+      explanation:
+        "Valor estimado de tu inversion hoy, despues de aplicar aportaciones, retiradas y rentabilidades guardadas.",
       icon: TrendingUp,
       tone: returnTone,
     },
@@ -143,6 +148,8 @@ export function InvestmentDashboard({
         sign: true,
       }),
       helper: "Valor actual + retiradas - aportaciones",
+      explanation:
+        "Ganancia o perdida en euros. Se calcula como valor actual mas retiradas menos todo el capital aportado.",
       icon: Coins,
       tone: profitTone,
     },
@@ -152,6 +159,8 @@ export function InvestmentDashboard({
         sign: true,
       }),
       helper: "Rendimiento TWR acumulado",
+      explanation:
+        "Rentabilidad acumulada del producto desde tu inicio. Usa TWR para medir rendimiento sin distorsion por aportaciones o retiradas.",
       icon: Target,
       tone: returnTone,
     },
@@ -161,6 +170,8 @@ export function InvestmentDashboard({
         sign: true,
       }),
       helper: "Tasa anualizada (TWR)",
+      explanation:
+        "La rentabilidad total expresada como ritmo anual segun tus dias reales de inversion. En periodos cortos puede verse muy alta o muy baja.",
       icon: BarChart3,
       tone: annualizedTone,
     },
@@ -170,6 +181,8 @@ export function InvestmentDashboard({
         sign: true,
       }),
       helper: "Desde maximo historico",
+      explanation:
+        "Mayor caida desde un maximo historico hasta un punto posterior mas bajo. Sirve para ver el riesgo de retroceso.",
       icon: TrendingDown,
       tone: "negative" as const,
     },
@@ -291,11 +304,13 @@ export function InvestmentDashboard({
           </div>
         </header>
 
-        <section className="grid gap-3 min-[380px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {kpis.map((kpi) => (
-            <KpiCard key={kpi.label} {...kpi} />
-          ))}
-        </section>
+        <TooltipProvider delayDuration={120}>
+          <section className="grid gap-3 min-[380px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {kpis.map((kpi) => (
+              <KpiCard key={kpi.label} {...kpi} />
+            ))}
+          </section>
+        </TooltipProvider>
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px] 2xl:grid-cols-[minmax(0,1fr)_430px]">
           <InvestmentChartCard
