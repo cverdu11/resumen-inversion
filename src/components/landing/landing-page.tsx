@@ -182,8 +182,8 @@ export function LandingPage({
   const message = getLoginMessage(loginError, loginStatus);
 
   return (
-    <main className="min-h-screen bg-[#020617] px-4 py-6 text-[#171b25] sm:px-6 lg:grid lg:place-items-center">
-      <section className="relative mx-auto grid min-h-[660px] w-full max-w-[1180px] overflow-hidden rounded-[28px] bg-[#050914] shadow-[0_34px_90px_rgba(0,0,0,0.48)] lg:grid-cols-[370px_minmax(0,1fr)]">
+    <main className="min-h-screen bg-[#020617] text-[#171b25]">
+      <section className="relative grid min-h-screen w-full overflow-hidden bg-[#050914] lg:grid-cols-[minmax(390px,31vw)_minmax(0,1fr)]">
         <aside className="relative z-10 flex flex-col bg-[#f7f5ef] px-7 py-7 sm:px-10 sm:py-9">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-[0_10px_28px_rgba(23,27,37,0.08)]">
