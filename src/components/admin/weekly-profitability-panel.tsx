@@ -8,7 +8,9 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  PencilLine,
   Percent,
+  PlusCircle,
   Save,
 } from "lucide-react";
 
@@ -28,7 +30,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatNumber, formatPercent, valueTone } from "@/lib/formatters";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+  valueTone,
+} from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 
@@ -107,6 +114,11 @@ type MonthlyProfitabilitySummary = {
   weeks: WeeklyProfitabilityItem[];
 };
 
+type WeeklyImpactProps = {
+  activeInvestorsBalance: number;
+  activeInvestorsCount: number;
+};
+
 function formatPeriodDate(date: string) {
   const formatted = periodDateFormatter
     .format(new Date(`${date}T12:00:00`))
@@ -121,6 +133,30 @@ function formatPeriod(startDate: string, endDate: string) {
 
 function formatReturnInput(value: number) {
   return percentInputFormatter.format(value);
+}
+
+function parseReturnPreview(value: string) {
+  const normalizedValue = value
+    .replace("%", "")
+    .replace(/\s/g, "")
+    .replace(",", ".")
+    .trim();
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue);
+
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function getEstimatedImpact(activeInvestorsBalance: number, returnPct: number | null) {
+  if (returnPct === null) {
+    return null;
+  }
+
+  return roundMonthlyValue((activeInvestorsBalance * returnPct) / 100);
 }
 
 function formatMonthTitle(monthKey: string) {
@@ -236,19 +272,110 @@ function buildMonthlyProfitabilityOverview(
     });
 }
 
-function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
+function getWeeklyActionCopy(status: WeeklyProfitabilityItem["status"]) {
+  if (status === "closed") {
+    return {
+      icon: PencilLine,
+      label: "Editar",
+      pendingLabel: "Editando",
+      variant: "outline" as const,
+      className:
+        "border-border/80 bg-background/35 text-card-foreground/82 hover:bg-secondary/70 hover:text-foreground",
+    };
+  }
+
+  if (status === "pending") {
+    return {
+      icon: PlusCircle,
+      label: "Registrar",
+      pendingLabel: "Registrando",
+      variant: "default" as const,
+      className: "",
+    };
+  }
+
+  return {
+    icon: Save,
+    label: "Guardar",
+    pendingLabel: "Guardando",
+    variant: "default" as const,
+    className: "",
+  };
+}
+
+function WeeklySubmitButton({
+  compact = false,
+  status,
+}: {
+  compact?: boolean;
+  status: WeeklyProfitabilityItem["status"];
+}) {
   const { pending } = useFormStatus();
+  const action = getWeeklyActionCopy(status);
+  const Icon = action.icon;
 
   return (
     <Button
-      className={cn("h-8 px-3 text-xs", compact && "px-2.5")}
+      className={cn("h-8 px-3 text-xs", compact && "px-2.5", action.className)}
       disabled={pending}
       size="sm"
       type="submit"
+      variant={action.variant}
     >
-      <Save className="size-3.5" data-icon="inline-start" />
-      {pending ? "Guardando" : "Guardar"}
+      <Icon className="size-3.5" data-icon="inline-start" />
+      {pending ? action.pendingLabel : action.label}
     </Button>
+  );
+}
+
+function WeeklyImpactPreview({
+  activeInvestorsBalance,
+  activeInvestorsCount,
+  className,
+  estimatedImpact,
+}: WeeklyImpactProps & {
+  className?: string;
+  estimatedImpact: number | null;
+}) {
+  const hasEstimate = estimatedImpact !== null;
+  const investorLabel =
+    activeInvestorsCount === 1 ? "inversor activo" : "inversores activos";
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-background/22 px-3 py-2 text-xs",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="text-muted-foreground">
+          Se aplicará a{" "}
+          <span className="font-semibold text-card-foreground">
+            {activeInvestorsCount}
+          </span>{" "}
+          {investorLabel}
+        </span>
+        <span
+          className={cn(
+            "font-semibold tabular-nums",
+            hasEstimate ? valueTone(estimatedImpact) : "text-muted-foreground",
+          )}
+        >
+          <span>Impacto estimado:</span>
+          <span className="ml-1">
+            {hasEstimate
+              ? `${formatCurrency(estimatedImpact, { sign: true })} agregado`
+              : "introduce %"}
+          </span>
+        </span>
+      </div>
+      {activeInvestorsBalance > 0 ? null : (
+        <p className="mt-1 text-muted-foreground">
+          No hay balance activo para estimar impacto.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -313,9 +440,13 @@ function WeeklyFormHiddenFields({
 
 function WeeklyReturnInput({
   inputId,
+  onValueChange,
+  value,
   week,
 }: {
   inputId: string;
+  onValueChange: (value: string) => void;
+  value: string;
   week: WeeklyProfitabilityItem;
 }) {
   return (
@@ -329,12 +460,13 @@ function WeeklyReturnInput({
             fieldClassName,
             "py-1.5 pl-2.5 pr-7 text-right tabular-nums placeholder:text-muted-foreground/70",
           )}
-          defaultValue={week.isSaved ? formatReturnInput(week.returnPct) : ""}
           id={inputId}
           inputMode="decimal"
           name="return_pct"
+          onChange={(event) => onValueChange(event.target.value)}
           placeholder="0,00"
           type="text"
+          value={value}
         />
         <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
           %
@@ -345,6 +477,8 @@ function WeeklyReturnInput({
 }
 
 function WeeklyReturnForm({
+  activeInvestorsBalance,
+  activeInvestorsCount,
   compact = false,
   formId,
   includeHiddenStatus = true,
@@ -354,6 +488,8 @@ function WeeklyReturnForm({
   scope = "inline",
   week,
 }: {
+  activeInvestorsBalance: number;
+  activeInvestorsCount: number;
   compact?: boolean;
   formId?: string;
   includeHiddenStatus?: boolean;
@@ -364,6 +500,13 @@ function WeeklyReturnForm({
   week: WeeklyProfitabilityItem;
 }) {
   const inputId = `return-pct-${scope}-${week.id}`;
+  const [returnValue, setReturnValue] = useState(() =>
+    week.isSaved ? formatReturnInput(week.returnPct) : "",
+  );
+  const estimatedImpact = getEstimatedImpact(
+    activeInvestorsBalance,
+    parseReturnPreview(returnValue),
+  );
 
   return (
     <form
@@ -380,7 +523,12 @@ function WeeklyReturnForm({
         openMonthsValue={openMonthsValue}
         week={week}
       />
-      <WeeklyReturnInput inputId={inputId} week={week} />
+      <WeeklyReturnInput
+        inputId={inputId}
+        onValueChange={setReturnValue}
+        value={returnValue}
+        week={week}
+      />
       {showStatus ? (
         <label className="grid gap-1.5">
           <span className="text-xs font-semibold uppercase text-muted-foreground">
@@ -391,28 +539,45 @@ function WeeklyReturnForm({
       ) : includeHiddenStatus ? (
         <input name="status" type="hidden" value={week.status} />
       ) : null}
-      <SaveWeeklyButton compact={compact} />
+      <WeeklySubmitButton compact={compact} status={week.status} />
+      <WeeklyImpactPreview
+        activeInvestorsBalance={activeInvestorsBalance}
+        activeInvestorsCount={activeInvestorsCount}
+        className={compact ? "col-span-2" : undefined}
+        estimatedImpact={estimatedImpact}
+      />
     </form>
   );
 }
 
 function DesktopWeeklyReturnForm({
+  activeInvestorsBalance,
+  activeInvestorsCount,
   next,
   openMonthsValue,
   summaryId,
   week,
 }: {
+  activeInvestorsBalance: number;
+  activeInvestorsCount: number;
   next: string;
   openMonthsValue: string;
   summaryId: string;
   week: WeeklyProfitabilityItem;
 }) {
   const inputId = `return-pct-desktop-${summaryId}-${week.id}`;
+  const [returnValue, setReturnValue] = useState(() =>
+    week.isSaved ? formatReturnInput(week.returnPct) : "",
+  );
+  const estimatedImpact = getEstimatedImpact(
+    activeInvestorsBalance,
+    parseReturnPreview(returnValue),
+  );
 
   return (
     <form
       action={saveWeeklyProfitability}
-      className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(14rem,auto)_minmax(9rem,auto)] items-center gap-4 border-b px-4 py-3 last:border-b-0"
+      className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(18rem,auto)_minmax(9rem,auto)] items-center gap-4 border-b px-4 py-3 last:border-b-0"
     >
       <WeeklyFormHiddenFields
         next={next}
@@ -423,9 +588,21 @@ function DesktopWeeklyReturnForm({
       <div className="tabular-nums text-card-foreground/82">
         {formatPeriod(week.startDate, week.endDate)}
       </div>
-      <div className="grid grid-cols-[minmax(0,7rem)_auto] items-center justify-end gap-2">
-        <WeeklyReturnInput inputId={inputId} week={week} />
-        <SaveWeeklyButton compact />
+      <div className="grid min-w-0 gap-2">
+        <div className="grid grid-cols-[minmax(0,7rem)_auto] items-center justify-end gap-2">
+          <WeeklyReturnInput
+            inputId={inputId}
+            onValueChange={setReturnValue}
+            value={returnValue}
+            week={week}
+          />
+          <WeeklySubmitButton compact status={week.status} />
+        </div>
+        <WeeklyImpactPreview
+          activeInvestorsBalance={activeInvestorsBalance}
+          activeInvestorsCount={activeInvestorsCount}
+          estimatedImpact={estimatedImpact}
+        />
       </div>
       <WeeklyStatusSelect status={week.status} />
     </form>
@@ -450,10 +627,14 @@ function WeekStatusBadge({ status }: { status: WeeklyProfitabilityItem["status"]
 }
 
 function MobileWeekEditor({
+  activeInvestorsBalance,
+  activeInvestorsCount,
   next,
   openMonthsValue,
   week,
 }: {
+  activeInvestorsBalance: number;
+  activeInvestorsCount: number;
   next: string;
   openMonthsValue: string;
   week: WeeklyProfitabilityItem;
@@ -472,6 +653,8 @@ function MobileWeekEditor({
         <WeekStatusBadge status={week.status} />
       </div>
       <WeeklyReturnForm
+        activeInvestorsBalance={activeInvestorsBalance}
+        activeInvestorsCount={activeInvestorsCount}
         next={next}
         openMonthsValue={openMonthsValue}
         scope="mobile"
@@ -483,10 +666,14 @@ function MobileWeekEditor({
 }
 
 function MonthChildWeeks({
+  activeInvestorsBalance,
+  activeInvestorsCount,
   next,
   openMonthsValue,
   summary,
 }: {
+  activeInvestorsBalance: number;
+  activeInvestorsCount: number;
   next: string;
   openMonthsValue: string;
   summary: MonthlyProfitabilitySummary;
@@ -495,7 +682,7 @@ function MonthChildWeeks({
     <div className="border-t bg-muted/14">
       <div className="hidden px-5 py-4 md:block">
         <div className="rounded-md border bg-background/22">
-          <div className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(14rem,auto)_minmax(9rem,auto)] gap-4 border-b px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
+          <div className="grid grid-cols-[minmax(8rem,0.75fr)_minmax(15rem,1fr)_minmax(18rem,auto)_minmax(9rem,auto)] gap-4 border-b px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
             <span>Semana</span>
             <span>Periodo</span>
             <span className="text-right">Rentabilidad</span>
@@ -503,6 +690,8 @@ function MonthChildWeeks({
           </div>
           {summary.weeks.map((week) => (
             <DesktopWeeklyReturnForm
+              activeInvestorsBalance={activeInvestorsBalance}
+              activeInvestorsCount={activeInvestorsCount}
               key={week.id}
               next={next}
               openMonthsValue={openMonthsValue}
@@ -516,6 +705,8 @@ function MonthChildWeeks({
       <div className="md:hidden">
         {summary.weeks.map((week) => (
           <MobileWeekEditor
+            activeInvestorsBalance={activeInvestorsBalance}
+            activeInvestorsCount={activeInvestorsCount}
             key={week.id}
             next={next}
             openMonthsValue={openMonthsValue}
@@ -528,12 +719,16 @@ function MonthChildWeeks({
 }
 
 function MobileMonthRow({
+  activeInvestorsBalance,
+  activeInvestorsCount,
   isExpanded,
   next,
   openMonthsValue,
   onToggle,
   summary,
 }: {
+  activeInvestorsBalance: number;
+  activeInvestorsCount: number;
   isExpanded: boolean;
   next: string;
   openMonthsValue: string;
@@ -611,6 +806,8 @@ function MobileMonthRow({
       </button>
       {isExpanded ? (
         <MonthChildWeeks
+          activeInvestorsBalance={activeInvestorsBalance}
+          activeInvestorsCount={activeInvestorsCount}
           next={next}
           openMonthsValue={openMonthsValue}
           summary={summary}
@@ -621,12 +818,16 @@ function MobileMonthRow({
 }
 
 export function WeeklyProfitabilityPanel({
+  activeInvestorsBalance,
+  activeInvestorsCount,
   next,
   openMonths,
   weeklyError,
   weeklyStatus,
   weeks,
 }: {
+  activeInvestorsBalance: number;
+  activeInvestorsCount: number;
   next: string;
   openMonths?: string;
   weeklyError?: string;
@@ -788,6 +989,8 @@ export function WeeklyProfitabilityPanel({
         <div className="md:hidden">
           {monthlyOverview.map((summary) => (
             <MobileMonthRow
+              activeInvestorsBalance={activeInvestorsBalance}
+              activeInvestorsCount={activeInvestorsCount}
               isExpanded={openMonthIds.includes(summary.id)}
               key={summary.id}
               next={next}
@@ -877,6 +1080,8 @@ export function WeeklyProfitabilityPanel({
                     <TableRow className="hover:bg-transparent">
                       <TableCell className="p-0" colSpan={6}>
                         <MonthChildWeeks
+                          activeInvestorsBalance={activeInvestorsBalance}
+                          activeInvestorsCount={activeInvestorsCount}
                           next={next}
                           openMonthsValue={openMonthsValue}
                           summary={summary}

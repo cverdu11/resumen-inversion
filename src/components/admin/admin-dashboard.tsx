@@ -54,6 +54,13 @@ export function AdminDashboard({
   weeklyStatus?: string;
 }) {
   const investors = databaseInvestors;
+  const activeInvestors = investors.filter(
+    (investor) => investor.status === "active",
+  );
+  const activeInvestorsBalance = activeInvestors.reduce(
+    (total, investor) => total + investor.currentBalance,
+    0,
+  );
   const currentWeekProfitability =
     weeklyProfitability.find((week) => week.isCurrent && week.isSaved)
       ?.returnPct ?? 0;
@@ -267,6 +274,8 @@ export function AdminDashboard({
         ) : (
           <section>
             <WeeklyProfitabilityPanel
+              activeInvestorsBalance={activeInvestorsBalance}
+              activeInvestorsCount={activeInvestors.length}
               next={currentAdminPath}
               openMonths={openMonths}
               weeklyError={weeklyError}
