@@ -1,5 +1,8 @@
 import type { LucideIcon } from "lucide-react";
-import { Eye, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { LockKeyhole, Mail, UserRound } from "lucide-react";
+
+import { LiveOilQuoteCard } from "@/components/landing/live-oil-quote-card";
+import { OilDropIcon } from "@/components/landing/oil-drop-icon";
 
 type LoginRole = "trader" | "investor";
 
@@ -58,28 +61,6 @@ function getLoginMessage(error?: string, status?: string) {
   }
 
   return null;
-}
-
-function OilDropIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 64 64"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M32 5.75C25.08 16.22 16 27.25 16 38.02C16 48.06 23.2 56 32 56C40.8 56 48 48.06 48 38.02C48 27.25 38.92 16.22 32 5.75Z"
-        fill="currentColor"
-      />
-      <path
-        d="M23.7 38.7C23.7 44.1 27.18 48.1 32.12 49.18"
-        stroke="rgba(255,255,255,0.58)"
-        strokeLinecap="round"
-        strokeWidth="4"
-      />
-    </svg>
-  );
 }
 
 function AbstractField() {
@@ -143,36 +124,6 @@ function AccessChoice({
       />
       {label}
     </label>
-  );
-}
-
-function QuoteCard() {
-  return (
-    <div className="w-full max-w-[440px] rounded-[24px] bg-white/[0.11] px-5 py-5 text-white shadow-[0_24px_60px_rgba(0,0,0,0.18)] backdrop-blur-md">
-      <div className="flex items-center gap-4">
-        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white shadow-[0_16px_34px_rgba(0,0,0,0.16)]">
-          <OilDropIcon className="size-8 text-black" />
-        </span>
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-white/78">
-            Cotizacion crudo
-          </p>
-          <p className="mt-2 text-sm font-bold text-white">CL1! · USD/BLL</p>
-        </div>
-      </div>
-      <div className="mt-5 flex items-end justify-between gap-5">
-        <p className="text-5xl font-black leading-none text-white sm:text-6xl">
-          67.76
-        </p>
-        <div
-          className="mb-2 flex items-center gap-2 rounded-full bg-white/14 px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-white/72"
-          title="Pendiente de conectar a un proveedor de cotizacion en vivo"
-        >
-          <Eye className="size-4" strokeWidth={1.9} />
-          Live
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -268,7 +219,7 @@ export function LandingPage({
           <AbstractField />
 
           <div className="relative z-10 w-full max-w-[720px] lg:-translate-y-12">
-            <QuoteCard />
+            <LiveOilQuoteCard />
 
             <p className="mt-9 text-[4.2rem] font-black leading-[0.88] tracking-normal text-white sm:text-[5.6rem] lg:text-[6.2rem] xl:text-[6.7rem]">
               Welcome.
