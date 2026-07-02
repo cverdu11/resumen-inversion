@@ -28,7 +28,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatNumber, formatPercent, valueTone } from "@/lib/formatters";
+import type { MockInvestor } from "@/lib/admin-mock-data";
+import {
+  formatCurrency,
+  formatPercent,
+  valueTone,
+} from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 
@@ -96,15 +101,22 @@ const openMonthsStorageKey = "resumen-inversion:weekly-profitability:open-months
 type PeriodSort = "desc" | "asc";
 
 type MonthlyProfitabilitySummary = {
+  averageBase: number;
   id: string;
   finalValue: number;
   initialValue: number;
   monthLabel: string;
+  movementTotal: number;
   result: number;
   returnPct: number;
   savedWeeksCount: number;
   totalWeeksCount: number;
   weeks: WeeklyProfitabilityItem[];
+};
+
+type PortfolioMovement = {
+  amount: number;
+  date: string;
 };
 
 function formatPeriodDate(date: string) {
@@ -132,14 +144,53 @@ function formatMonthTitle(monthKey: string) {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
-function formatSignedNumber(value: number) {
-  const sign = value > 0 ? "+" : "";
-
-  return `${sign}${formatNumber(value)}`;
+function formatSignedCurrency(value: number) {
+  return formatCurrency(value, { sign: true });
 }
 
 function roundMonthlyValue(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function getNextMonthStart(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const nextMonth = new Date(year, month, 1, 12);
+
+  return nextMonth.toISOString().slice(0, 10);
+}
+
+function getDateTime(date: string) {
+  return new Date(`${date}T12:00:00`).getTime();
+}
+
+function getMovementWeekWeight(
+  movementDate: string,
+  weekStart: string,
+  weekEnd: string,
+) {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const startTime = getDateTime(weekStart);
+  const endTime = getDateTime(weekEnd);
+  const movementTime = Math.max(getDateTime(movementDate), startTime);
+  const totalDays = Math.max(1, Math.round((endTime - startTime) / dayMs) + 1);
+  const activeDays = Math.max(
+    0,
+    Math.round((endTime - movementTime) / dayMs) + 1,
+  );
+
+  return Math.min(1, activeDays / totalDays);
+}
+
+function getPortfolioMovements(investors: MockInvestor[]): PortfolioMovement[] {
+  return investors
+    .flatMap((investor) =>
+      investor.movements.map((movement) => ({
+        amount:
+          movement.type === "withdrawal" ? -movement.amount : movement.amount,
+        date: movement.date,
+      })),
+    )
+    .sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function sortWeeksByPeriod(
@@ -189,10 +240,14 @@ function readSavedOpenMonthIds() {
 }
 
 function buildMonthlyProfitabilityOverview(
+  investors: MockInvestor[],
   weeks: WeeklyProfitabilityItem[],
   periodSort: PeriodSort,
 ): MonthlyProfitabilitySummary[] {
   const weeksByMonth = new Map<string, WeeklyProfitabilityItem[]>();
+  const portfolioMovements = getPortfolioMovements(investors);
+  let movementIndex = 0;
+  let portfolioValue = 0;
 
   for (const week of weeks) {
     const monthKey = week.endDate.slice(0, 7);
@@ -201,39 +256,126 @@ function buildMonthlyProfitabilityOverview(
     weeksByMonth.set(monthKey, existingWeeks);
   }
 
-  return [...weeksByMonth.entries()]
-    .sort(([leftMonth], [rightMonth]) =>
-      periodSort === "desc"
-        ? rightMonth.localeCompare(leftMonth)
-        : leftMonth.localeCompare(rightMonth),
-    )
+  const monthlySummaries = [...weeksByMonth.entries()]
+    .sort(([leftMonth], [rightMonth]) => leftMonth.localeCompare(rightMonth))
     .map(([monthKey, monthWeeks]) => {
-      const savedWeeks = [...monthWeeks]
-        .filter((week) => week.isSaved)
-        .sort((left, right) => left.startDate.localeCompare(right.startDate));
-      const initialValue = 100;
-      const result = roundMonthlyValue(
-        savedWeeks.reduce(
-          (total, week) => total + (initialValue * week.returnPct) / 100,
-          0,
-        ),
+      const monthStart = `${monthKey}-01`;
+      const nextMonthStart = getNextMonthStart(monthKey);
+      const chronologicalWeeks = [...monthWeeks].sort((left, right) =>
+        left.startDate.localeCompare(right.startDate),
       );
-      const finalValue = initialValue + result;
-      const roundedFinalValue = roundMonthlyValue(finalValue);
-      const returnPct = roundMonthlyValue((result / initialValue) * 100);
+
+      while (
+        movementIndex < portfolioMovements.length &&
+        portfolioMovements[movementIndex].date < monthStart
+      ) {
+        portfolioValue += portfolioMovements[movementIndex].amount;
+        movementIndex += 1;
+      }
+
+      const initialValue = portfolioValue;
+      let averageBaseTotal = 0;
+      let movementTotal = 0;
+      let result = 0;
+      let savedWeeksCount = 0;
+
+      for (const week of chronologicalWeeks) {
+        while (
+          movementIndex < portfolioMovements.length &&
+          portfolioMovements[movementIndex].date < week.startDate
+        ) {
+          const movement = portfolioMovements[movementIndex];
+          portfolioValue += movement.amount;
+
+          if (movement.date >= monthStart && movement.date < nextMonthStart) {
+            movementTotal += movement.amount;
+          }
+
+          movementIndex += 1;
+        }
+
+        if (week.isSaved) {
+          let weeklyBase = portfolioValue;
+
+          while (
+            movementIndex < portfolioMovements.length &&
+            portfolioMovements[movementIndex].date <= week.endDate
+          ) {
+            const movement = portfolioMovements[movementIndex];
+            const movementWeight = getMovementWeekWeight(
+              movement.date,
+              week.startDate,
+              week.endDate,
+            );
+
+            weeklyBase += movement.amount * movementWeight;
+            portfolioValue += movement.amount;
+
+            if (movement.date >= monthStart && movement.date < nextMonthStart) {
+              movementTotal += movement.amount;
+            }
+
+            movementIndex += 1;
+          }
+
+          const weeklyResult = (weeklyBase * week.returnPct) / 100;
+
+          averageBaseTotal += weeklyBase;
+          portfolioValue += weeklyResult;
+          result += weeklyResult;
+          savedWeeksCount += 1;
+        } else {
+          while (
+            movementIndex < portfolioMovements.length &&
+            portfolioMovements[movementIndex].date <= week.endDate
+          ) {
+            const movement = portfolioMovements[movementIndex];
+            portfolioValue += movement.amount;
+
+            if (movement.date >= monthStart && movement.date < nextMonthStart) {
+              movementTotal += movement.amount;
+            }
+
+            movementIndex += 1;
+          }
+        }
+      }
+
+      while (
+        movementIndex < portfolioMovements.length &&
+        portfolioMovements[movementIndex].date < nextMonthStart
+      ) {
+        const movement = portfolioMovements[movementIndex];
+        portfolioValue += movement.amount;
+        movementTotal += movement.amount;
+        movementIndex += 1;
+      }
+
+      const averageBase =
+        savedWeeksCount > 0 ? averageBaseTotal / savedWeeksCount : initialValue;
+      const returnPct =
+        averageBase > 0 ? roundMonthlyValue((result / averageBase) * 100) : 0;
 
       return {
+        averageBase: roundMonthlyValue(averageBase),
         id: monthKey,
-        finalValue: roundedFinalValue,
-        initialValue,
+        finalValue: roundMonthlyValue(portfolioValue),
+        initialValue: roundMonthlyValue(initialValue),
         monthLabel: formatMonthTitle(monthKey),
-        result,
+        movementTotal: roundMonthlyValue(movementTotal),
+        result: roundMonthlyValue(result),
         returnPct,
-        savedWeeksCount: savedWeeks.length,
+        savedWeeksCount,
         totalWeeksCount: monthWeeks.length,
         weeks: sortWeeksByPeriod(monthWeeks, periodSort),
       };
     });
+
+  return monthlySummaries.sort((left, right) =>
+    periodSort === "desc"
+      ? right.id.localeCompare(left.id)
+      : left.id.localeCompare(right.id),
+  );
 }
 
 function SaveWeeklyButton({ compact = false }: { compact?: boolean }) {
@@ -572,17 +714,31 @@ function MobileMonthRow({
                 "shrink-0 text-sm font-semibold tabular-nums",
                 valueTone(summary.returnPct),
               )}
+              title={`Base media semanal: ${formatCurrency(summary.averageBase)}`}
             >
               {formatPercent(summary.returnPct, { sign: true })}
             </span>
           </span>
-          <span className="mt-3 grid grid-cols-3 gap-2">
+          <span className="mt-3 grid grid-cols-2 gap-2">
             <span className="rounded-md border bg-background/28 px-3 py-2">
               <span className="block text-[0.68rem] font-medium uppercase text-muted-foreground">
                 Inicial
               </span>
               <span className="mt-1 block text-sm font-semibold tabular-nums text-card-foreground/90">
-                {formatNumber(summary.initialValue)}
+                {formatCurrency(summary.initialValue)}
+              </span>
+            </span>
+            <span className="rounded-md border bg-background/28 px-3 py-2">
+              <span className="block text-[0.68rem] font-medium uppercase text-muted-foreground">
+                Movimientos
+              </span>
+              <span
+                className={cn(
+                  "mt-1 block text-sm font-semibold tabular-nums",
+                  valueTone(summary.movementTotal),
+                )}
+              >
+                {formatSignedCurrency(summary.movementTotal)}
               </span>
             </span>
             <span className="rounded-md border bg-background/28 px-3 py-2">
@@ -590,7 +746,7 @@ function MobileMonthRow({
                 Final
               </span>
               <span className="mt-1 block text-sm font-semibold tabular-nums text-card-foreground/90">
-                {formatNumber(summary.finalValue)}
+                {formatCurrency(summary.finalValue)}
               </span>
             </span>
             <span className="rounded-md border bg-background/28 px-3 py-2">
@@ -603,7 +759,7 @@ function MobileMonthRow({
                   valueTone(summary.result),
                 )}
               >
-                {formatSignedNumber(summary.result)}
+                {formatSignedCurrency(summary.result)}
               </span>
             </span>
           </span>
@@ -621,12 +777,14 @@ function MobileMonthRow({
 }
 
 export function WeeklyProfitabilityPanel({
+  investors,
   next,
   openMonths,
   weeklyError,
   weeklyStatus,
   weeks,
 }: {
+  investors: MockInvestor[];
   next: string;
   openMonths?: string;
   weeklyError?: string;
@@ -651,8 +809,8 @@ export function WeeklyProfitabilityPanel({
       "No se pudo guardar la rentabilidad semanal."
     : "";
   const monthlyOverview = useMemo(
-    () => buildMonthlyProfitabilityOverview(weeks, periodSort),
-    [periodSort, weeks],
+    () => buildMonthlyProfitabilityOverview(investors, weeks, periodSort),
+    [investors, periodSort, weeks],
   );
   const availableMonthIds = useMemo(
     () => new Set(monthlyOverview.map((summary) => summary.id)),
@@ -764,7 +922,7 @@ export function WeeklyProfitabilityPanel({
               Resumen mensual
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Base 100 mensual calculada desde el inicio de cada mes
+              Capital real con movimientos por fecha y base semanal ponderada
             </p>
           </div>
           <Button
@@ -802,10 +960,13 @@ export function WeeklyProfitabilityPanel({
           <TableHeader className="bg-card/95">
             <TableRow className="hover:bg-transparent">
               <TableHead className="min-w-56">Mes</TableHead>
-              <TableHead className="min-w-28 text-right">
-                Valor inicial
+              <TableHead className="min-w-36 text-right">
+                Capital inicial
               </TableHead>
-              <TableHead className="min-w-28 text-right">Valor final</TableHead>
+              <TableHead className="min-w-36 text-right">
+                Movimientos
+              </TableHead>
+              <TableHead className="min-w-36 text-right">Capital final</TableHead>
               <TableHead className="min-w-32 text-right">
                 Beneficio / perdida
               </TableHead>
@@ -843,10 +1004,18 @@ export function WeeklyProfitabilityPanel({
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-card-foreground/86">
-                      {formatNumber(summary.initialValue)}
+                      {formatCurrency(summary.initialValue)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        valueTone(summary.movementTotal),
+                      )}
+                    >
+                      {formatSignedCurrency(summary.movementTotal)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-card-foreground/86">
-                      {formatNumber(summary.finalValue)}
+                      {formatCurrency(summary.finalValue)}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -854,13 +1023,14 @@ export function WeeklyProfitabilityPanel({
                         valueTone(summary.result),
                       )}
                     >
-                      {formatSignedNumber(summary.result)}
+                      {formatSignedCurrency(summary.result)}
                     </TableCell>
                     <TableCell
                       className={cn(
                         "text-right tabular-nums font-medium",
                         valueTone(summary.returnPct),
                       )}
+                      title={`Base media semanal: ${formatCurrency(summary.averageBase)}`}
                     >
                       {formatPercent(summary.returnPct, { sign: true })}
                     </TableCell>
@@ -875,7 +1045,7 @@ export function WeeklyProfitabilityPanel({
                   </TableRow>
                   {isExpanded ? (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell className="p-0" colSpan={6}>
+                      <TableCell className="p-0" colSpan={7}>
                         <MonthChildWeeks
                           next={next}
                           openMonthsValue={openMonthsValue}

@@ -305,6 +305,7 @@ export function AdminDashboard({
         ) : (
           <section>
             <WeeklyProfitabilityPanel
+              investors={investors}
               next={currentAdminPath}
               openMonths={openMonths}
               weeklyError={weeklyError}
