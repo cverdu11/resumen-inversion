@@ -7,6 +7,9 @@ import { OilDropIcon } from "@/components/landing/oil-drop-icon";
 import type { OilQuote } from "@/lib/oil-quote";
 
 const quoteRefreshMs = 60_000;
+const mobileQuoteQuery = "(max-width: 1023px)";
+
+type QuoteStatus = "error" | "loading" | "ready";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
@@ -34,13 +37,15 @@ function getQuoteMeta(quote: OilQuote | null) {
   return `${quote.provider} - ${delayText} - ${formatUpdatedAt(quote.updatedAt)}`;
 }
 
-export function LiveOilQuoteCard() {
+function useOilQuote(enabled = true) {
   const [quote, setQuote] = useState<OilQuote | null>(null);
-  const [status, setStatus] = useState<"error" | "loading" | "ready">(
-    "loading",
-  );
+  const [status, setStatus] = useState<QuoteStatus>("loading");
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     let isMounted = true;
 
     async function loadQuote() {
@@ -73,7 +78,52 @@ export function LiveOilQuoteCard() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
+  }, [enabled]);
+
+  return { quote, status };
+}
+
+function useIsMobileQuoteVisible() {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(mobileQuoteQuery);
+    const updateVisibility = () => setIsVisible(mediaQuery.matches);
+
+    updateVisibility();
+    mediaQuery.addEventListener("change", updateVisibility);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateVisibility);
+    };
   }, []);
+
+  return isVisible;
+}
+
+export function LiveOilQuoteInline() {
+  const isMobileQuoteVisible = useIsMobileQuoteVisible();
+  const { quote, status } = useOilQuote(isMobileQuoteVisible);
+
+  if (!isMobileQuoteVisible) {
+    return null;
+  }
+
+  const priceLabel = quote
+    ? priceFormatter.format(quote.price)
+    : status === "error"
+      ? "N/D"
+      : "--.--";
+
+  return (
+    <span aria-live="polite" className="text-[#171b25]">
+      , {priceLabel} USD/BBL
+    </span>
+  );
+}
+
+export function LiveOilQuoteCard() {
+  const { quote, status } = useOilQuote();
 
   const priceLabel = quote ? priceFormatter.format(quote.price) : "--.--";
   const statusLabel =
