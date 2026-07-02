@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   BarChart3,
   CalendarDays,
+  ChevronDown,
   Coins,
   Database,
   LogOut,
@@ -15,6 +17,7 @@ import {
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { MonthlySummaryTable } from "@/components/dashboard/monthly-summary-table";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -99,6 +102,11 @@ export function InvestmentDashboard({
       weeklyData: weeklyInvestmentData,
     } satisfies InvestmentDashboardData);
   const investmentSummary = data.summary;
+  const investorEmail = userEmail ?? "Usuario autenticado";
+  const investorInitial = investorEmail.trim().charAt(0).toUpperCase() || "I";
+  const [showLoginToast, setShowLoginToast] = useState(
+    loginStatus === "success",
+  );
   const returnTone =
     investmentSummary.totalReturnPct >= 0 ? "positive" : "negative";
   const profitTone =
@@ -160,6 +168,30 @@ export function InvestmentDashboard({
     },
   ] as const;
 
+  useEffect(() => {
+    if (loginStatus !== "success") {
+      return;
+    }
+
+    const hideTimer = window.setTimeout(() => {
+      setShowLoginToast(false);
+    }, 3000);
+    const cleanupTimer = window.setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("login_status");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    }, 3200);
+
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearTimeout(cleanupTimer);
+    };
+  }, [loginStatus]);
+
   return (
     <main className="dashboard-grid min-h-screen px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto flex max-w-[1780px] flex-col gap-4 sm:gap-5">
@@ -173,22 +205,68 @@ export function InvestmentDashboard({
             </p>
           </div>
           <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
-            {loginStatus === "success" ? (
-              <div className="rounded-md border border-positive/30 bg-positive-soft px-4 py-2 text-sm font-semibold text-positive">
-                Sesion iniciada correctamente.
-              </div>
-            ) : null}
-            {userEmail ? (
-              <form action="/auth/signout" method="post">
-                <button
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border bg-background/30 px-4 text-sm font-semibold text-card-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-secondary/70"
-                  type="submit"
+            <div className="relative w-full sm:w-auto lg:shrink-0">
+              {userEmail ? (
+                <details className="group/account">
+                  <summary
+                    aria-label="Abrir menu de cuenta"
+                    className="flex min-h-12 w-full cursor-pointer list-none items-center gap-3 rounded-full border bg-background/35 px-2 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-secondary/70 sm:w-[320px] [&::-webkit-details-marker]:hidden"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary ring-1 ring-primary/25">
+                      {investorInitial}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-medium text-muted-foreground">
+                        Sesion inversor
+                      </span>
+                      <span className="block truncate text-sm font-semibold text-card-foreground">
+                        {investorEmail}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className="size-4 shrink-0 text-muted-foreground transition-transform group-open/account:rotate-180"
+                      strokeWidth={1.9}
+                    />
+                  </summary>
+
+                  <div className="glass-panel absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-lg border p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42)] sm:left-auto sm:w-[360px]">
+                    <div className="rounded-md bg-secondary/45 px-5 py-5 text-center">
+                      <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/15 text-lg font-bold text-primary ring-1 ring-primary/25">
+                        {investorInitial}
+                      </span>
+                      <p className="mt-3 text-sm font-semibold text-card-foreground">
+                        Cuenta inversor
+                      </p>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        {investorEmail}
+                      </p>
+                    </div>
+
+                    <div className="mt-2 flex flex-col gap-1">
+                      <form action="/auth/signout" method="post">
+                        <Button
+                          className="h-11 w-full justify-start rounded-md px-3 text-sm"
+                          variant="ghost"
+                          type="submit"
+                        >
+                          <LogOut data-icon="inline-start" strokeWidth={1.9} />
+                          Salir
+                        </Button>
+                      </form>
+                    </div>
+                  </div>
+                </details>
+              ) : null}
+              {showLoginToast ? (
+                <div
+                  aria-live="polite"
+                  className="pointer-events-none absolute right-0 top-full z-30 mt-2 w-full rounded-md border border-positive/30 bg-positive-soft px-4 py-2 text-sm font-semibold text-positive shadow-[0_16px_40px_rgba(0,0,0,0.28)] sm:w-[320px]"
+                  role="status"
                 >
-                  <LogOut className="size-4" strokeWidth={1.9} />
-                  Salir
-                </button>
-              </form>
-            ) : null}
+                  Sesion iniciada correctamente.
+                </div>
+              ) : null}
+            </div>
             <Card className="w-full max-w-sm border-border lg:w-auto">
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="grid size-10 shrink-0 place-items-center rounded-md border bg-muted/70 text-muted-foreground">
