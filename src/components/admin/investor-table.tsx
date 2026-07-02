@@ -5,6 +5,8 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Check,
+  Copy,
   Eye,
   EyeOff,
   Mail,
@@ -49,6 +51,7 @@ import {
   formatPercent,
   valueTone,
 } from "@/lib/formatters";
+import type { InvestorAccessCredentials } from "@/lib/investor-access";
 import { cn } from "@/lib/utils";
 
 const editInputClassName =
@@ -60,7 +63,7 @@ const editLabelClassName =
 const accessButtonClassName = "h-10 w-full justify-center sm:w-52";
 
 const accessStatusCopy: Record<string, string> = {
-  sent: "Credenciales enviadas al inversor.",
+  sent: "Credenciales generadas. Resend ha aceptado el envio del correo.",
 };
 
 const accessErrorCopy: Record<string, string> = {
@@ -310,6 +313,86 @@ function SendInvestorAccessButton() {
   );
 }
 
+function InvestorAccessCredentialsPanel({
+  credentials,
+}: {
+  credentials: InvestorAccessCredentials;
+}) {
+  const [isCopied, setIsCopied] = useState(false);
+  const credentialsText = [
+    `Inversor: ${credentials.investorName}`,
+    `Usuario: ${credentials.email}`,
+    `Contrasena: ${credentials.password}`,
+    `Login: ${credentials.loginUrl}`,
+  ].join("\n");
+
+  async function copyCredentials() {
+    try {
+      await navigator.clipboard.writeText(credentialsText);
+      setIsCopied(true);
+      window.setTimeout(() => setIsCopied(false), 2200);
+    } catch {
+      setIsCopied(false);
+    }
+  }
+
+  return (
+    <div className="border-b bg-background/26 px-5 py-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-card-foreground">
+            Credenciales temporales listas para copiar
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Puedes enviarlas manualmente al inversor. La contrasena se regenera
+            cada vez que pulsas enviar credenciales.
+          </p>
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+            <div className="rounded-md border bg-background/45 px-3 py-2">
+              <p className="text-[0.68rem] font-semibold uppercase text-muted-foreground">
+                Usuario
+              </p>
+              <p className="mt-1 truncate font-semibold text-card-foreground">
+                {credentials.email}
+              </p>
+            </div>
+            <div className="rounded-md border bg-background/45 px-3 py-2">
+              <p className="text-[0.68rem] font-semibold uppercase text-muted-foreground">
+                Contrasena
+              </p>
+              <p className="mt-1 font-semibold tracking-normal text-card-foreground">
+                {credentials.password}
+              </p>
+            </div>
+            <div className="rounded-md border bg-background/45 px-3 py-2">
+              <p className="text-[0.68rem] font-semibold uppercase text-muted-foreground">
+                Login
+              </p>
+              <p className="mt-1 truncate font-semibold text-card-foreground">
+                {credentials.loginUrl}
+              </p>
+            </div>
+          </div>
+        </div>
+        <Button
+          className="shrink-0 justify-center"
+          onClick={copyCredentials}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {isCopied ? (
+            <Check data-icon="inline-start" />
+          ) : (
+            <Copy data-icon="inline-start" />
+          )}
+          {isCopied ? "Copiado" : "Copiar credenciales"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
   return (
     <div className="grid gap-4 rounded-md border bg-background/24 p-4">
@@ -523,12 +606,14 @@ function MobileInvestorCard({
 }
 
 export function InvestorTable({
+  accessCredentials,
   accessError,
   accessStatus,
   investorError,
   investors,
   selectedInvestorId,
 }: {
+  accessCredentials?: InvestorAccessCredentials;
   accessError?: string;
   accessStatus?: string;
   investorError?: string;
@@ -609,6 +694,9 @@ export function InvestorTable({
         <div className="border-b bg-warning-soft px-5 py-3 text-sm font-medium text-warning">
           {accessErrorCopy[accessError]}
         </div>
+      ) : null}
+      {accessCredentials ? (
+        <InvestorAccessCredentialsPanel credentials={accessCredentials} />
       ) : null}
       <CardContent className="p-0">
         <div className="lg:hidden">

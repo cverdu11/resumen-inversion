@@ -23,12 +23,14 @@ import {
   type MockInvestor,
 } from "@/lib/admin-mock-data";
 import { formatPercent, formatWholeCurrency } from "@/lib/formatters";
+import type { InvestorAccessCredentials } from "@/lib/investor-access";
 import { cn } from "@/lib/utils";
 import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 
 type AdminTab = "panel" | "rentabilidad";
 
 export function AdminDashboard({
+  accessCredentials,
   accessError,
   accessStatus,
   activeTab,
@@ -44,6 +46,7 @@ export function AdminDashboard({
   weeklyProfitability,
   weeklyStatus,
 }: {
+  accessCredentials?: InvestorAccessCredentials;
   accessError?: string;
   accessStatus?: string;
   activeTab: AdminTab;
@@ -294,6 +297,7 @@ export function AdminDashboard({
               )}
             >
               <InvestorTable
+                accessCredentials={accessCredentials}
                 accessError={accessError}
                 accessStatus={accessStatus}
                 investorError={investorError}

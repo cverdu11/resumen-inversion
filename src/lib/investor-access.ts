@@ -17,12 +17,21 @@ type InvestorAccessInput = {
   investorSlug: string;
 };
 
+export type InvestorAccessCredentials = {
+  email: string;
+  investorName: string;
+  loginUrl: string;
+  password: string;
+};
+
 type InvestorAccessResult =
   | {
+      credentials: InvestorAccessCredentials;
       ok: true;
       status: "sent";
     }
   | {
+      credentials?: InvestorAccessCredentials;
       ok: false;
       error: InvestorAccessError;
     };
@@ -220,6 +229,12 @@ export async function createAndSendInvestorAccess(
     return { ok: false, error: "auth_create" };
   }
 
+  const credentials = {
+    email: input.email,
+    investorName: input.investorName,
+    loginUrl: `${getSiteUrl()}/?role=investor`,
+    password,
+  };
   const emailResult = await sendInvestorAccessEmail({
     email: input.email,
     investorName: input.investorName,
@@ -227,8 +242,8 @@ export async function createAndSendInvestorAccess(
   });
 
   if (!emailResult.ok) {
-    return { ok: false, error: emailResult.error };
+    return { ok: false, error: emailResult.error, credentials };
   }
 
-  return { ok: true, status: "sent" };
+  return { ok: true, status: "sent", credentials };
 }

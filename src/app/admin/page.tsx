@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import type { InvestorStatus, MockInvestor } from "@/lib/admin-mock-data";
 import { formatMonthName } from "@/lib/formatters";
+import type { InvestorAccessCredentials } from "@/lib/investor-access";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildWeeklyProfitabilityItems,
@@ -61,6 +63,32 @@ const validInvestorStatuses = new Set<InvestorStatus>([
   "pending",
   "paused",
 ]);
+const investorAccessCookieName = "investor_access_credentials";
+
+function parseInvestorAccessCredentials(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Partial<InvestorAccessCredentials>;
+
+    if (
+      typeof parsed.email !== "string" ||
+      typeof parsed.investorName !== "string" ||
+      typeof parsed.loginUrl !== "string" ||
+      typeof parsed.password !== "string"
+    ) {
+      return undefined;
+    }
+
+    return parsed as InvestorAccessCredentials;
+  } catch {
+    return undefined;
+  }
+}
 
 function toInvestorStatus(value: string): InvestorStatus {
   return validInvestorStatuses.has(value as InvestorStatus)
@@ -291,6 +319,13 @@ function mapDatabaseInvestors(
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = await searchParams;
+  const cookieStore = await cookies();
+  const accessCredentials =
+    params?.access_status || params?.access_error
+      ? parseInvestorAccessCredentials(
+          cookieStore.get(investorAccessCookieName)?.value,
+        )
+      : undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -342,6 +377,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   return (
     <AdminDashboard
+      accessCredentials={accessCredentials}
       accessError={params?.access_error}
       accessStatus={params?.access_status}
       activeTab={params?.tab === "rentabilidad" ? "rentabilidad" : "panel"}

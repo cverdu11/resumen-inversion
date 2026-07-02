@@ -1,10 +1,12 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
   createAndSendInvestorAccess,
   normalizeInvestorEmail,
+  type InvestorAccessCredentials,
   type InvestorAccessError,
 } from "@/lib/investor-access";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +22,7 @@ const defaultMovementNotes = {
   contribution: "Aportacion parcial",
   withdrawal: "Retirada parcial",
 } as const;
+const investorAccessCookieName = "investor_access_credentials";
 
 function getSafeNext(value: FormDataEntryValue | null) {
   const next = String(value ?? "/admin");
@@ -176,13 +179,50 @@ function redirectWithInvestorError(result: string): never {
   redirect(`/admin?investor_error=${result}`);
 }
 
-function redirectWithInvestorAccessResult(
+async function setInvestorAccessCredentialsCookie(
+  credentials?: InvestorAccessCredentials,
+) {
+  if (!credentials) {
+    return;
+  }
+
+  const cookieStore = await cookies();
+
+  cookieStore.set({
+    httpOnly: true,
+    maxAge: 5 * 60,
+    name: investorAccessCookieName,
+    path: "/admin",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    value: Buffer.from(JSON.stringify(credentials), "utf8").toString(
+      "base64url",
+    ),
+  });
+}
+
+async function redirectWithInvestorAccessResult(
   slug: string,
   result:
-    | { ok: true; status: string }
-    | { ok: false; error: InvestorAccessError | "duplicate_email" | "invalid_email" | "missing_email" | "trader_email" },
+    | {
+        credentials?: InvestorAccessCredentials;
+        ok: true;
+        status: string;
+      }
+    | {
+        credentials?: InvestorAccessCredentials;
+        ok: false;
+        error:
+          | InvestorAccessError
+          | "duplicate_email"
+          | "invalid_email"
+          | "missing_email"
+          | "trader_email";
+      },
   options?: { showInvestor?: boolean },
-): never {
+): Promise<never> {
+  await setInvestorAccessCredentialsCookie(result.credentials);
+
   const params = new URLSearchParams();
 
   if (options?.showInvestor ?? true) {
@@ -359,7 +399,7 @@ export async function createInvestor(formData: FormData) {
       investorSlug: investor.slug,
     });
 
-    redirectWithInvestorAccessResult(investor.slug, accessResult, {
+    await redirectWithInvestorAccessResult(investor.slug, accessResult, {
       showInvestor: false,
     });
   }
@@ -405,10 +445,16 @@ export async function updateInvestor(formData: FormData) {
   );
 
   if (emailError) {
-    redirectWithInvestorAccessResult(investor.slug, {
-      ok: false,
-      error: emailError,
-    });
+    await redirectWithInvestorAccessResult(
+      investor.slug,
+      {
+        ok: false,
+        error: emailError,
+      },
+      {
+        showInvestor: false,
+      },
+    );
   }
 
   const nextSlug = await getUniqueInvestorSlug(
@@ -481,12 +527,12 @@ export async function updateInvestor(formData: FormData) {
       investorSlug: nextSlug,
     });
 
-    redirectWithInvestorAccessResult(nextSlug, accessResult, {
+    await redirectWithInvestorAccessResult(nextSlug, accessResult, {
       showInvestor: false,
     });
   }
 
-  redirect(`/admin?investor=${nextSlug}`);
+  redirect("/admin");
 }
 
 export async function sendInvestorAccess(formData: FormData) {
@@ -510,10 +556,16 @@ export async function sendInvestorAccess(formData: FormData) {
   const email = normalizeInvestorEmail(investor.email);
 
   if (!email) {
-    redirectWithInvestorAccessResult(slug, {
-      ok: false,
-      error: email === null ? "invalid_email" : "missing_email",
-    });
+    return await redirectWithInvestorAccessResult(
+      slug,
+      {
+        ok: false,
+        error: email === null ? "invalid_email" : "missing_email",
+      },
+      {
+        showInvestor: false,
+      },
+    );
   }
 
   const emailError = await validateInvestorEmail(
@@ -523,10 +575,16 @@ export async function sendInvestorAccess(formData: FormData) {
   );
 
   if (emailError) {
-    redirectWithInvestorAccessResult(slug, {
-      ok: false,
-      error: emailError,
-    });
+    await redirectWithInvestorAccessResult(
+      slug,
+      {
+        ok: false,
+        error: emailError,
+      },
+      {
+        showInvestor: false,
+      },
+    );
   }
 
   const accessResult = await createAndSendInvestorAccess({
@@ -536,7 +594,7 @@ export async function sendInvestorAccess(formData: FormData) {
     investorSlug: investor.slug,
   });
 
-  redirectWithInvestorAccessResult(slug, accessResult, {
+  await redirectWithInvestorAccessResult(slug, accessResult, {
     showInvestor: false,
   });
 }
