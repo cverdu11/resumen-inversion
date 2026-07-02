@@ -181,8 +181,13 @@ function redirectWithInvestorAccessResult(
   result:
     | { ok: true; status: string }
     | { ok: false; error: InvestorAccessError | "duplicate_email" | "invalid_email" | "missing_email" | "trader_email" },
+  options?: { showInvestor?: boolean },
 ): never {
-  const params = new URLSearchParams({ investor: slug });
+  const params = new URLSearchParams();
+
+  if (options?.showInvestor ?? true) {
+    params.set("investor", slug);
+  }
 
   if (result.ok) {
     params.set("access_status", result.status);
@@ -527,7 +532,9 @@ export async function sendInvestorAccess(formData: FormData) {
     investorSlug: investor.slug,
   });
 
-  redirectWithInvestorAccessResult(slug, accessResult);
+  redirectWithInvestorAccessResult(slug, accessResult, {
+    showInvestor: false,
+  });
 }
 
 export async function addInvestorMovement(formData: FormData) {

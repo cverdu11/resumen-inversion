@@ -57,6 +57,8 @@ const editInputClassName =
 const editLabelClassName =
   "text-xs font-semibold uppercase text-muted-foreground";
 
+const accessButtonClassName = "h-10 w-full justify-center sm:w-52";
+
 const accessStatusCopy: Record<string, string> = {
   sent: "Credenciales enviadas al inversor.",
 };
@@ -279,7 +281,12 @@ function UpdateInvestorButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="sm" disabled={pending}>
+    <Button
+      className={accessButtonClassName}
+      type="submit"
+      size="sm"
+      disabled={pending}
+    >
       <Save data-icon="inline-start" />
       {pending ? "Guardando..." : "Guardar cambios"}
     </Button>
@@ -290,7 +297,13 @@ function SendInvestorAccessButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="sm" variant="outline" disabled={pending}>
+    <Button
+      className={accessButtonClassName}
+      type="submit"
+      size="sm"
+      variant="outline"
+      disabled={pending}
+    >
       <Mail data-icon="inline-start" />
       {pending ? "Enviando..." : "Enviar credenciales"}
     </Button>
@@ -373,7 +386,9 @@ function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
             La ruta se actualiza automaticamente si cambias el nombre. Si
             anades o cambias el email, se enviaran nuevas credenciales.
           </p>
-          <UpdateInvestorButton />
+          <div className="w-full sm:w-auto">
+            <UpdateInvestorButton />
+          </div>
         </div>
       </form>
       {investor.email ? (
