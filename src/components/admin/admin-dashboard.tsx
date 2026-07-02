@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -69,12 +69,39 @@ export function AdminDashboard({
   const selectedInvestorId = selectedInvestor?.id ?? "";
   const traderEmail = userEmail ?? "Usuario autenticado";
   const traderInitial = traderEmail.trim().charAt(0).toUpperCase() || "T";
+  const [showLoginToast, setShowLoginToast] = useState(
+    loginStatus === "success",
+  );
   const currentAdminPath =
     activeTab === "rentabilidad"
       ? "/admin?tab=rentabilidad"
       : selectedInvestor
         ? `/admin?investor=${selectedInvestor.slug}`
         : "/admin";
+
+  useEffect(() => {
+    if (loginStatus !== "success") {
+      return;
+    }
+
+    const hideTimer = window.setTimeout(() => {
+      setShowLoginToast(false);
+    }, 3000);
+    const cleanupTimer = window.setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("login_status");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    }, 3200);
+
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearTimeout(cleanupTimer);
+    };
+  }, [loginStatus]);
 
   const kpis = [
     {
@@ -146,11 +173,6 @@ export function AdminDashboard({
             <h1 className="text-2xl font-semibold leading-tight tracking-normal text-foreground sm:text-4xl">
               Panel trader
             </h1>
-            {loginStatus === "success" ? (
-              <div className="mt-3 w-fit rounded-md border border-positive/30 bg-positive-soft px-4 py-2 text-sm font-semibold text-positive">
-                Sesión iniciada correctamente.
-              </div>
-            ) : null}
             <p className="mt-2 text-sm text-card-foreground/84 sm:text-lg">
               Gestión de inversores y rentabilidad semanal
             </p>
@@ -213,6 +235,15 @@ export function AdminDashboard({
                 </div>
               </div>
             </details>
+            {showLoginToast ? (
+              <div
+                aria-live="polite"
+                className="pointer-events-none absolute right-0 top-full z-30 mt-2 w-full rounded-md border border-positive/30 bg-positive-soft px-4 py-2 text-sm font-semibold text-positive shadow-[0_16px_40px_rgba(0,0,0,0.28)] sm:w-[320px]"
+                role="status"
+              >
+                Sesión iniciada correctamente.
+              </div>
+            ) : null}
           </div>
         </header>
 
