@@ -26,12 +26,14 @@ import {
 } from "@/components/ui/table";
 import {
   type CapitalMovementItem,
+  capitalMovements as defaultCapitalMovements,
   compoundWeeklyReturn,
   getCapitalMovementsForMonth,
   getWeeklyDataForMonth,
   monthlyInvestmentData,
   type MonthlyInvestmentItem,
   type WeeklyInvestmentItem,
+  weeklyInvestmentData,
 } from "@/lib/investment-data";
 import {
   formatCurrency,
@@ -262,15 +264,23 @@ function MobileMonthlyRow({
   );
 }
 
-export function MonthlySummaryTable() {
+export function MonthlySummaryTable({
+  capitalMovements = defaultCapitalMovements,
+  monthlyData = monthlyInvestmentData,
+  weeklyData = weeklyInvestmentData,
+}: {
+  capitalMovements?: CapitalMovementItem[];
+  monthlyData?: MonthlyInvestmentItem[];
+  weeklyData?: WeeklyInvestmentItem[];
+}) {
   const [page, setPage] = useState(1);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
-  const totalPages = Math.ceil(monthlyInvestmentData.length / rowsPerPage);
+  const totalPages = Math.max(1, Math.ceil(monthlyData.length / rowsPerPage));
 
   const visibleRows = useMemo(() => {
     const start = (page - 1) * rowsPerPage;
-    return monthlyInvestmentData.slice(start, start + rowsPerPage);
-  }, [page]);
+    return monthlyData.slice(start, start + rowsPerPage);
+  }, [monthlyData, page]);
 
   function exportCsv() {
     const headers = [
@@ -282,7 +292,7 @@ export function MonthlySummaryTable() {
       "Ganancia (€)",
       "Rentabilidad (%)",
     ];
-    const rows = monthlyInvestmentData.map((item) => [
+    const rows = monthlyData.map((item) => [
       item.month,
       formatNumber(item.initialValue),
       formatNumber(item.contributions),
@@ -322,7 +332,7 @@ export function MonthlySummaryTable() {
         </div>
         <div className="flex items-center gap-3">
           <p className="hidden text-sm text-muted-foreground sm:block">
-            {monthlyInvestmentData.length} meses en total
+            {monthlyData.length} meses en total
           </p>
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download data-icon="inline-start" />
@@ -334,14 +344,17 @@ export function MonthlySummaryTable() {
         <div className="md:hidden">
           {visibleRows.map((item) => {
             const isExpanded = expandedMonth === item.date;
-            const capitalMovements = getCapitalMovementsForMonth(item.date);
-            const weeklyRows = getWeeklyDataForMonth(item.date);
+            const monthMovements = getCapitalMovementsForMonth(
+              item.date,
+              capitalMovements,
+            );
+            const weeklyRows = getWeeklyDataForMonth(item.date, weeklyData);
 
             return (
               <MobileMonthlyRow
                 key={item.date}
                 item={item}
-                movements={capitalMovements}
+                movements={monthMovements}
                 weeks={weeklyRows}
                 isExpanded={isExpanded}
                 onToggle={() =>
@@ -380,8 +393,11 @@ export function MonthlySummaryTable() {
           <TableBody>
             {visibleRows.map((item) => {
               const isExpanded = expandedMonth === item.date;
-              const capitalMovements = getCapitalMovementsForMonth(item.date);
-              const weeklyRows = getWeeklyDataForMonth(item.date);
+              const monthMovements = getCapitalMovementsForMonth(
+                item.date,
+                capitalMovements,
+              );
+              const weeklyRows = getWeeklyDataForMonth(item.date, weeklyData);
 
               return (
                 <Fragment key={item.date}>
@@ -461,7 +477,7 @@ export function MonthlySummaryTable() {
                       <TableCell colSpan={7} className="p-0">
                         <WeeklyBreakdown
                           month={item}
-                          movements={capitalMovements}
+                          movements={monthMovements}
                           weeks={weeklyRows}
                         />
                       </TableCell>
@@ -474,7 +490,7 @@ export function MonthlySummaryTable() {
         </Table>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-4 sm:px-5">
           <p className="text-sm text-muted-foreground sm:hidden">
-            {monthlyInvestmentData.length} meses en total
+            {monthlyData.length} meses en total
           </p>
           <div className="ml-auto flex items-center gap-2">
             <Button

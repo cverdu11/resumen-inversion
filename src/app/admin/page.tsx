@@ -17,6 +17,8 @@ export const metadata: Metadata = {
 
 type AdminPageProps = {
   searchParams?: Promise<{
+    access_error?: string;
+    access_status?: string;
     investor?: string;
     investor_error?: string;
     password_error?: string;
@@ -33,6 +35,7 @@ type DatabaseInvestorRow = {
   id: number;
   first_name: string;
   last_name: string;
+  email: string | null;
   slug: string;
   start_date: string;
   status: string;
@@ -246,6 +249,7 @@ function mapDatabaseInvestors(
       name: investor.first_name,
       surname: investor.last_name,
       slug: investor.slug,
+      email: investor.email,
       startDate: investor.start_date,
       initialContribution,
       additionalContributions,
@@ -305,7 +309,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   const { data: investorRows } = await supabase
     .from("investors")
-    .select("id, first_name, last_name, slug, start_date, status")
+    .select("id, first_name, last_name, email, slug, start_date, status")
     .order("created_at", { ascending: true });
   const databaseInvestorRows = (investorRows ?? []) as DatabaseInvestorRow[];
   const investorIds = databaseInvestorRows.map((investor) => investor.id);
@@ -338,6 +342,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   return (
     <AdminDashboard
+      accessError={params?.access_error}
+      accessStatus={params?.access_status}
       activeTab={params?.tab === "rentabilidad" ? "rentabilidad" : "panel"}
       databaseInvestors={databaseInvestors}
       investorError={params?.investor_error}

@@ -18,7 +18,9 @@ import {
 import { formatPercent } from "@/lib/formatters";
 import {
   getPreviousMonthLabel,
-  investmentSummary,
+  investmentSummary as defaultInvestmentSummary,
+  type InvestmentSummary,
+  type MonthlyInvestmentItem,
   monthlyInvestmentData,
 } from "@/lib/investment-data";
 import { cn } from "@/lib/utils";
@@ -54,68 +56,89 @@ type InsightItem = {
   tone: InsightTone;
 };
 
-const maxDrawdownPeriod = getPreviousMonthLabel(
-  monthlyInvestmentData,
-  investmentSummary.maxDrawdown,
-);
+function getLatestTwelveLabel(
+  monthlyData: MonthlyInvestmentItem[],
+  fallbackLabel: string,
+) {
+  const latestTwelve = monthlyData.slice(-12);
 
-const insights: InsightItem[] = [
-  {
-    icon: Trophy,
-    title: "Mejor mes",
-    detail: investmentSummary.bestMonth.month,
-    value: formatPercent(investmentSummary.bestMonth.returnPct, {
-      sign: true,
-    }),
-    tone: "positive",
-  },
-  {
-    icon: Target,
-    title: "Peor mes",
-    detail: investmentSummary.worstMonth.month,
-    value: formatPercent(investmentSummary.worstMonth.returnPct, {
-      sign: true,
-    }),
-    tone: "negative",
-  },
-  {
-    icon: TrendingUp,
-    title: "Mejor racha",
-    detail: investmentSummary.bestPositiveStreak.label,
-    value: `${investmentSummary.bestPositiveStreak.months} meses`,
-    tone: "positive",
-  },
-  {
-    icon: TrendingDown,
-    title: "Máxima caída",
-    detail: maxDrawdownPeriod,
-    value: formatPercent(investmentSummary.maxDrawdownPct, { sign: true }),
-    tone: "negative",
-  },
-  {
-    icon: CalendarDays,
-    title: "Mes actual",
-    detail: investmentSummary.currentMonth.month,
-    value: formatPercent(investmentSummary.currentMonth.returnPct, {
-      sign: true,
-    }),
-    tone: investmentSummary.currentMonth.returnPct >= 0 ? "positive" : "negative",
-  },
-  {
-    icon: Clock3,
-    title: "Rentabilidad últimos 12 meses",
-    detail: "Abr 25 - Mar 26",
-    value: formatPercent(investmentSummary.lastTwelveMonthsReturnPct, {
-      sign: true,
-    }),
-    tone:
-      investmentSummary.lastTwelveMonthsReturnPct >= 0
-        ? "positive"
-        : "negative",
-  },
-];
+  if (latestTwelve.length <= 1) {
+    return fallbackLabel;
+  }
 
-export function InsightsPanel() {
+  return `${latestTwelve[0].month} - ${latestTwelve.at(-1)?.month}`;
+}
+
+export function InsightsPanel({
+  investmentSummary = defaultInvestmentSummary,
+  monthlyData = monthlyInvestmentData,
+}: {
+  investmentSummary?: InvestmentSummary;
+  monthlyData?: MonthlyInvestmentItem[];
+}) {
+  const maxDrawdownPeriod = monthlyData.length
+    ? getPreviousMonthLabel(monthlyData, investmentSummary.maxDrawdown)
+    : "Sin datos";
+  const insights: InsightItem[] = [
+    {
+      icon: Trophy,
+      title: "Mejor mes",
+      detail: investmentSummary.bestMonth.month,
+      value: formatPercent(investmentSummary.bestMonth.returnPct, {
+        sign: true,
+      }),
+      tone: "positive",
+    },
+    {
+      icon: Target,
+      title: "Peor mes",
+      detail: investmentSummary.worstMonth.month,
+      value: formatPercent(investmentSummary.worstMonth.returnPct, {
+        sign: true,
+      }),
+      tone: "negative",
+    },
+    {
+      icon: TrendingUp,
+      title: "Mejor racha",
+      detail: investmentSummary.bestPositiveStreak.label || "Sin racha",
+      value: `${investmentSummary.bestPositiveStreak.months} meses`,
+      tone: "positive",
+    },
+    {
+      icon: TrendingDown,
+      title: "Maxima caida",
+      detail: maxDrawdownPeriod,
+      value: formatPercent(investmentSummary.maxDrawdownPct, { sign: true }),
+      tone: "negative",
+    },
+    {
+      icon: CalendarDays,
+      title: "Mes actual",
+      detail: investmentSummary.currentMonth.month,
+      value: formatPercent(investmentSummary.currentMonth.returnPct, {
+        sign: true,
+      }),
+      tone:
+        investmentSummary.currentMonth.returnPct >= 0 ? "positive" : "negative",
+    },
+    {
+      icon: Clock3,
+      title: "Rentabilidad ultimos 12 meses",
+      detail: getLatestTwelveLabel(
+        monthlyData,
+        investmentSummary.currentMonth.month,
+      ),
+      value: formatPercent(investmentSummary.lastTwelveMonthsReturnPct, {
+        sign: true,
+      }),
+      tone:
+        investmentSummary.lastTwelveMonthsReturnPct >= 0
+          ? "positive"
+          : "negative",
+    },
+  ];
+
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="flex-row items-center gap-3 border-b p-5">

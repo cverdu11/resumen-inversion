@@ -2,6 +2,11 @@
 
 import { redirect } from "next/navigation";
 
+import {
+  createAndSendInvestorAccess,
+  normalizeInvestorEmail,
+  type InvestorAccessError,
+} from "@/lib/investor-access";
 import { createClient } from "@/lib/supabase/server";
 import type { WeeklyProfitabilityStatus } from "@/lib/weekly-profitability";
 
@@ -171,6 +176,23 @@ function redirectWithInvestorError(result: string): never {
   redirect(`/admin?investor_error=${result}`);
 }
 
+function redirectWithInvestorAccessResult(
+  slug: string,
+  result:
+    | { ok: true; status: string }
+    | { ok: false; error: InvestorAccessError | "duplicate_email" | "invalid_email" | "missing_email" | "trader_email" },
+): never {
+  const params = new URLSearchParams({ investor: slug });
+
+  if (result.ok) {
+    params.set("access_status", result.status);
+  } else {
+    params.set("access_error", result.error);
+  }
+
+  redirect(`/admin?${params.toString()}`);
+}
+
 async function getUniqueInvestorSlug(
   supabase: Awaited<ReturnType<typeof createClient>>,
   baseSlug: string,
@@ -203,7 +225,7 @@ async function getInvestorBySlug(
 ) {
   const { data, error } = await supabase
     .from("investors")
-    .select("id, slug")
+    .select("id, slug, email")
     .eq("slug", slug)
     .single();
 
@@ -214,9 +236,49 @@ async function getInvestorBySlug(
   return data;
 }
 
+async function validateInvestorEmail(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  email: string,
+  currentInvestorId?: number,
+) {
+  if (!email) {
+    return null;
+  }
+
+  let duplicateQuery = supabase
+    .from("investors")
+    .select("id")
+    .ilike("email", email)
+    .limit(1);
+
+  if (currentInvestorId) {
+    duplicateQuery = duplicateQuery.neq("id", currentInvestorId);
+  }
+
+  const { data: duplicateInvestors } = await duplicateQuery;
+
+  if (duplicateInvestors?.length) {
+    return "duplicate_email" as const;
+  }
+
+  const { data: traderProfiles } = await supabase
+    .from("trader_profiles")
+    .select("id")
+    .ilike("email", email)
+    .eq("is_active", true)
+    .limit(1);
+
+  if (traderProfiles?.length) {
+    return "trader_email" as const;
+  }
+
+  return null;
+}
+
 export async function createInvestor(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const surname = String(formData.get("surname") ?? "").trim();
+  const normalizedEmail = normalizeInvestorEmail(formData.get("email"));
   const startDate = String(formData.get("start_date") ?? "");
   const initialContribution = parseMoneyInput(
     String(formData.get("initial_contribution") ?? ""),
@@ -225,6 +287,10 @@ export async function createInvestor(formData: FormData) {
   const status = validInvestorStatuses.includes(rawStatus)
     ? rawStatus
     : "active";
+
+  if (normalizedEmail === null) {
+    redirectWithInvestorError("invalid_email");
+  }
 
   if (
     !name ||
@@ -237,6 +303,12 @@ export async function createInvestor(formData: FormData) {
   }
 
   const { supabase } = await getAuthorizedTraderClient();
+  const emailError = await validateInvestorEmail(supabase, normalizedEmail);
+
+  if (emailError) {
+    redirectWithInvestorError(emailError);
+  }
+
   const slug = await getUniqueInvestorSlug(
     supabase,
     normalizeSlug(`${name}-${surname}`),
@@ -247,6 +319,7 @@ export async function createInvestor(formData: FormData) {
     .insert({
       first_name: name,
       last_name: surname,
+      email: normalizedEmail || null,
       slug,
       start_date: startDate,
       status,
@@ -273,6 +346,17 @@ export async function createInvestor(formData: FormData) {
     redirectWithInvestorError("movement");
   }
 
+  if (normalizedEmail) {
+    const accessResult = await createAndSendInvestorAccess({
+      email: normalizedEmail,
+      investorId: Number(investor.id),
+      investorName: `${name} ${surname}`,
+      investorSlug: investor.slug,
+    });
+
+    redirectWithInvestorAccessResult(investor.slug, accessResult);
+  }
+
   redirect(`/admin?investor=${investor.slug}`);
 }
 
@@ -280,6 +364,7 @@ export async function updateInvestor(formData: FormData) {
   const currentSlug = String(formData.get("current_slug") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const surname = String(formData.get("surname") ?? "").trim();
+  const normalizedEmail = normalizeInvestorEmail(formData.get("email"));
   const startDate = String(formData.get("start_date") ?? "");
   const initialContribution = parseMoneyInput(
     String(formData.get("initial_contribution") ?? ""),
@@ -288,6 +373,10 @@ export async function updateInvestor(formData: FormData) {
   const status = validInvestorStatuses.includes(rawStatus)
     ? rawStatus
     : "active";
+
+  if (normalizedEmail === null) {
+    redirectWithInvestorError("invalid_email");
+  }
 
   if (
     !currentSlug ||
@@ -302,6 +391,19 @@ export async function updateInvestor(formData: FormData) {
 
   const { supabase } = await getAuthorizedTraderClient();
   const investor = await getInvestorBySlug(supabase, currentSlug);
+  const emailError = await validateInvestorEmail(
+    supabase,
+    normalizedEmail,
+    investor.id,
+  );
+
+  if (emailError) {
+    redirectWithInvestorAccessResult(investor.slug, {
+      ok: false,
+      error: emailError,
+    });
+  }
+
   const nextSlug = await getUniqueInvestorSlug(
     supabase,
     normalizeSlug(`${name}-${surname}`),
@@ -312,6 +414,7 @@ export async function updateInvestor(formData: FormData) {
     .update({
       first_name: name,
       last_name: surname,
+      email: normalizedEmail || null,
       slug: nextSlug,
       start_date: startDate,
       status,
@@ -360,7 +463,71 @@ export async function updateInvestor(formData: FormData) {
     }
   }
 
+  if (
+    normalizedEmail &&
+    normalizedEmail !== String(investor.email ?? "").toLowerCase()
+  ) {
+    const accessResult = await createAndSendInvestorAccess({
+      email: normalizedEmail,
+      investorId: Number(investor.id),
+      investorName: `${name} ${surname}`,
+      investorSlug: nextSlug,
+    });
+
+    redirectWithInvestorAccessResult(nextSlug, accessResult);
+  }
+
   redirect(`/admin?investor=${nextSlug}`);
+}
+
+export async function sendInvestorAccess(formData: FormData) {
+  const slug = String(formData.get("slug") ?? "").trim();
+
+  if (!slug) {
+    redirectWithInvestorError("missing");
+  }
+
+  const { supabase } = await getAuthorizedTraderClient();
+  const { data: investor, error } = await supabase
+    .from("investors")
+    .select("id, first_name, last_name, slug, email")
+    .eq("slug", slug)
+    .single();
+
+  if (error || !investor) {
+    redirectWithInvestorError("not_found");
+  }
+
+  const email = normalizeInvestorEmail(investor.email);
+
+  if (!email) {
+    redirectWithInvestorAccessResult(slug, {
+      ok: false,
+      error: email === null ? "invalid_email" : "missing_email",
+    });
+  }
+
+  const emailError = await validateInvestorEmail(
+    supabase,
+    email,
+    Number(investor.id),
+  );
+
+  if (emailError) {
+    redirectWithInvestorAccessResult(slug, {
+      ok: false,
+      error: emailError,
+    });
+  }
+
+  const accessResult = await createAndSendInvestorAccess({
+    email,
+    investorId: Number(investor.id),
+    investorName: `${investor.first_name} ${investor.last_name}`,
+    investorSlug: investor.slug,
+  });
+
+  redirectWithInvestorAccessResult(slug, accessResult);
 }
 
 export async function addInvestorMovement(formData: FormData) {

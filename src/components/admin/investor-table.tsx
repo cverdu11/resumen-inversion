@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   Eye,
   EyeOff,
+  Mail,
   Pencil,
   Plus,
   Save,
@@ -16,7 +17,11 @@ import {
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 
-import { deleteInvestor, updateInvestor } from "@/app/admin/actions";
+import {
+  deleteInvestor,
+  sendInvestorAccess,
+  updateInvestor,
+} from "@/app/admin/actions";
 import { CreateInvestorForm } from "@/components/admin/create-investor-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +56,29 @@ const editInputClassName =
 
 const editLabelClassName =
   "text-xs font-semibold uppercase text-muted-foreground";
+
+const accessStatusCopy: Record<string, string> = {
+  sent: "Credenciales enviadas al inversor.",
+};
+
+const accessErrorCopy: Record<string, string> = {
+  auth_config:
+    "Email guardado, pero falta configurar SUPABASE_SERVICE_ROLE_KEY para crear el usuario de acceso.",
+  auth_create: "No se pudo crear o actualizar el usuario de acceso.",
+  duplicate_email: "Ese email ya esta asignado a otro inversor.",
+  email_config:
+    "Usuario creado, pero falta configurar RESEND_API_KEY e INVESTOR_ACCESS_EMAIL_FROM para enviar el correo.",
+  email_send: "No se pudo enviar el correo de credenciales.",
+  invalid_email: "El email del inversor no es valido.",
+  missing_email: "Anade un email al inversor antes de enviar credenciales.",
+  trader_email: "Ese email pertenece a una cuenta trader activa.",
+};
+
+const investorErrorCopy: Record<string, string> = {
+  duplicate_email: accessErrorCopy.duplicate_email,
+  invalid_email: accessErrorCopy.invalid_email,
+  trader_email: accessErrorCopy.trader_email,
+};
 
 type InvestorSortKey =
   | "additionalContributions"
@@ -258,12 +286,23 @@ function UpdateInvestorButton() {
   );
 }
 
+function SendInvestorAccessButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" size="sm" variant="outline" disabled={pending}>
+      <Mail data-icon="inline-start" />
+      {pending ? "Enviando..." : "Enviar credenciales"}
+    </Button>
+  );
+}
+
 function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
   return (
     <div className="grid gap-4 rounded-md border bg-background/24 p-4">
       <form action={updateInvestor} className="grid gap-4">
         <input type="hidden" name="current_slug" value={investor.slug} />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <label className="grid gap-1.5">
             <span className={editLabelClassName}>Nombre</span>
             <input
@@ -280,6 +319,17 @@ function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
               name="surname"
               defaultValue={investor.surname}
               required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className={editLabelClassName}>Email inversor</span>
+            <input
+              className={editInputClassName}
+              name="email"
+              type="email"
+              inputMode="email"
+              defaultValue={investor.email ?? ""}
+              placeholder="inversor@email.com"
             />
           </label>
           <label className="grid gap-1.5">
@@ -320,11 +370,18 @@ function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            La ruta se actualiza automaticamente si cambias el nombre.
+            La ruta se actualiza automaticamente si cambias el nombre. Si
+            anades o cambias el email, se enviaran nuevas credenciales.
           </p>
           <UpdateInvestorButton />
         </div>
       </form>
+      {investor.email ? (
+        <form action={sendInvestorAccess} className="flex justify-end">
+          <input type="hidden" name="slug" value={investor.slug} />
+          <SendInvestorAccessButton />
+        </form>
+      ) : null}
       <div className="border-t pt-3">
         <form
           action={deleteInvestor}
@@ -387,6 +444,9 @@ function MobileInvestorCard({
             <span className="mt-1 block truncate text-xs text-muted-foreground">
               ID {investor.id.replace("inv-", "")}
             </span>
+            <span className="mt-1 block truncate text-xs text-muted-foreground">
+              {investor.email ?? "Sin email de acceso"}
+            </span>
           </Link>
         </span>
         <span className="flex shrink-0 items-center gap-2">
@@ -448,10 +508,14 @@ function MobileInvestorCard({
 }
 
 export function InvestorTable({
+  accessError,
+  accessStatus,
   investorError,
   investors,
   selectedInvestorId,
 }: {
+  accessError?: string;
+  accessStatus?: string;
   investorError?: string;
   investors: MockInvestor[];
   selectedInvestorId: string;
@@ -517,7 +581,18 @@ export function InvestorTable({
       ) : null}
       {investorError ? (
         <div className="border-b bg-danger-soft px-5 py-3 text-sm font-medium text-danger">
-          No se pudo guardar el cambio. Revisa los datos e intentalo de nuevo.
+          {investorErrorCopy[investorError] ??
+            "No se pudo guardar el cambio. Revisa los datos e intentalo de nuevo."}
+        </div>
+      ) : null}
+      {accessStatus && accessStatusCopy[accessStatus] ? (
+        <div className="border-b bg-positive-soft px-5 py-3 text-sm font-medium text-positive">
+          {accessStatusCopy[accessStatus]}
+        </div>
+      ) : null}
+      {accessError && accessErrorCopy[accessError] ? (
+        <div className="border-b bg-warning-soft px-5 py-3 text-sm font-medium text-warning">
+          {accessErrorCopy[accessError]}
         </div>
       ) : null}
       <CardContent className="p-0">
@@ -692,6 +767,9 @@ export function InvestorTable({
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             ID {investor.id.replace("inv-", "")}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {investor.email ?? "Sin email de acceso"}
                           </p>
                         </div>
                       </div>

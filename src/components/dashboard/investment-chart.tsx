@@ -31,6 +31,7 @@ import {
   getWeeklyDataForMonths,
   monthlyInvestmentData,
   rangeOptions,
+  weeklyInvestmentData,
   type MonthlyInvestmentItem,
   type RangeKey,
   type WeeklyInvestmentItem,
@@ -329,16 +330,22 @@ function WeeklyRangeSummary({ weeks }: { weeks: WeeklyInvestmentItem[] }) {
   );
 }
 
-export function InvestmentChartCard() {
+export function InvestmentChartCard({
+  monthlyData = monthlyInvestmentData,
+  weeklyData = weeklyInvestmentData,
+}: {
+  monthlyData?: MonthlyInvestmentItem[];
+  weeklyData?: WeeklyInvestmentItem[];
+}) {
   const [range, setRange] = useState<RangeKey>("TODO");
   const isCompactChart = useCompactChart();
   const visibleData = useMemo(
-    () => filterDataByRange(monthlyInvestmentData, range),
-    [range],
+    () => filterDataByRange(monthlyData, range),
+    [monthlyData, range],
   );
   const visibleWeeklyData = useMemo(
-    () => getWeeklyDataForMonths(visibleData),
-    [visibleData],
+    () => getWeeklyDataForMonths(visibleData, weeklyData),
+    [visibleData, weeklyData],
   );
   const periodStartValue = visibleData[0]?.initialValue ?? 0;
   const chartData = useMemo<ChartDatum[]>(
@@ -362,6 +369,10 @@ export function InvestmentChartCard() {
     [visibleData],
   );
   const yDomain = useMemo<[number, number]>(() => {
+    if (!chartData.length) {
+      return [0, 100];
+    }
+
     const values = [
       periodStartValue,
       ...chartData.flatMap((item) => [
@@ -440,6 +451,12 @@ export function InvestmentChartCard() {
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
+        {!chartData.length ? (
+          <div className="grid h-[320px] place-items-center rounded-md border bg-muted/18 text-sm text-muted-foreground sm:h-[430px]">
+            Sin datos de inversion todavia.
+          </div>
+        ) : (
+          <>
         <div className="mb-4 flex flex-col gap-3 sm:mb-5">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:gap-5">
             <div className="flex items-center gap-2 text-card-foreground/88">
@@ -594,6 +611,8 @@ export function InvestmentChartCard() {
             </ResponsiveContainer>
           </div>
         </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

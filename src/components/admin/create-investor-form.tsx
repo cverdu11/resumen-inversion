@@ -53,7 +53,7 @@ export function CreateInvestorForm({
         </Button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <label className="grid gap-1.5">
           <span className={labelClassName}>Nombre</span>
           <input
@@ -70,6 +70,16 @@ export function CreateInvestorForm({
             name="surname"
             placeholder="Apellidos"
             required
+          />
+        </label>
+        <label className="grid gap-1.5">
+          <span className={labelClassName}>Email inversor</span>
+          <input
+            className={inputClassName}
+            name="email"
+            type="email"
+            inputMode="email"
+            placeholder="inversor@email.com"
           />
         </label>
         <label className="grid gap-1.5">

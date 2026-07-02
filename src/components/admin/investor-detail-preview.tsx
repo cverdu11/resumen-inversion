@@ -489,6 +489,12 @@ export function InvestorDetailPreview({
           </div>
           <div className="mt-4 grid gap-3 text-sm">
             <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Email acceso</span>
+              <span className="truncate font-semibold text-card-foreground">
+                {investor.email ?? "Sin email"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Aportación inicial</span>
               <span className="font-semibold tabular-nums text-card-foreground">
                 {formatCurrency(investor.initialContribution)}

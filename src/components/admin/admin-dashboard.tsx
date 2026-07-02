@@ -29,6 +29,8 @@ import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 type AdminTab = "panel" | "rentabilidad";
 
 export function AdminDashboard({
+  accessError,
+  accessStatus,
   activeTab,
   databaseInvestors,
   investorError,
@@ -42,6 +44,8 @@ export function AdminDashboard({
   weeklyProfitability,
   weeklyStatus,
 }: {
+  accessError?: string;
+  accessStatus?: string;
   activeTab: AdminTab;
   databaseInvestors: MockInvestor[];
   investorError?: string;
@@ -290,6 +294,8 @@ export function AdminDashboard({
               )}
             >
               <InvestorTable
+                accessError={accessError}
+                accessStatus={accessStatus}
                 investorError={investorError}
                 investors={investors}
                 selectedInvestorId={selectedInvestorId}

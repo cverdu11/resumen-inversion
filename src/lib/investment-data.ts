@@ -553,30 +553,49 @@ export function getPreviousMonthLabel(
   return `${formatCompactSpanishMonth(previous.date)} - ${formatCompactSpanishMonth(item.date)}`;
 }
 
-export function deriveInvestmentSummary(data = monthlyInvestmentData) {
-  const movementTotals = getCapitalMovementTotals();
+export function deriveInvestmentSummary(
+  data = monthlyInvestmentData,
+  movements = capitalMovements,
+  openingContribution = initialContribution,
+) {
+  const movementTotals = getCapitalMovementTotals(
+    movements,
+    openingContribution,
+  );
   const investedCapital = movementTotals.netCapitalContributed;
   const currentValue = data.at(-1)?.finalValue ?? 0;
   const totalProfit =
     currentValue + movementTotals.withdrawals - movementTotals.totalContributions;
   const totalReturnPct = (compoundReturn(data) - 1) * 100;
+  const fallbackMonth = data[0] ?? {
+    contributions: 0,
+    date: "",
+    finalValue: 0,
+    gain: 0,
+    initialValue: 0,
+    maxDrawdownPct: 0,
+    month: "Sin datos",
+    netCapitalContributed: 0,
+    netCashFlow: 0,
+    returnPct: 0,
+    withdrawals: 0,
+  };
   const maxDrawdown = data.reduce(
     (lowest, item) =>
       item.maxDrawdownPct < lowest.maxDrawdownPct ? item : lowest,
-    data[0],
+    fallbackMonth,
   );
   const bestMonth = data.reduce(
     (best, item) => (item.returnPct > best.returnPct ? item : best),
-    data[0],
+    fallbackMonth,
   );
   const worstMonth = data.reduce(
     (worst, item) => (item.returnPct < worst.returnPct ? item : worst),
-    data[0],
+    fallbackMonth,
   );
   const trailingTwelve = data.slice(-12);
   const lastTwelveMonthsReturnPct = (compoundReturn(trailingTwelve) - 1) * 100;
-  const currentMonth =
-    data.find((item) => item.date.startsWith("2024-05")) ?? data[0];
+  const currentMonth = data.at(-1) ?? fallbackMonth;
 
   return {
     initialContribution: movementTotals.initialContribution,
@@ -639,3 +658,4 @@ export function deriveVisibleChartInsights(data: MonthlyInvestmentItem[]) {
 }
 
 export const investmentSummary = deriveInvestmentSummary(monthlyInvestmentData);
+export type InvestmentSummary = ReturnType<typeof deriveInvestmentSummary>;

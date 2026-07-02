@@ -30,6 +30,7 @@ export type MockInvestor = {
   name: string;
   surname: string;
   slug: string;
+  email?: string | null;
   startDate: string;
   initialContribution: number;
   additionalContributions: number;
