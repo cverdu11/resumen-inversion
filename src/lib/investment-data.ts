@@ -49,6 +49,8 @@ export const annualizedBasisYears = 0.6719466820798697;
 
 export const initialContribution = 10000;
 
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
 export const capitalMovements: CapitalMovementItem[] = [
   {
     id: "aportacion-2024-11-08",
@@ -500,6 +502,17 @@ export function calculateAnnualizedReturn(
   return (Math.pow(1 + totalReturnPct / 100, 1 / basisYears) - 1) * 100;
 }
 
+export function getAnnualizedBasisYears(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T12:00:00`);
+  const end = new Date(`${endDate}T12:00:00`);
+  const diffDays = Math.max(
+    1,
+    Math.round((end.getTime() - start.getTime()) / millisecondsPerDay),
+  );
+
+  return diffDays / 365.25;
+}
+
 export function getBestPositiveStreak(data: MonthlyInvestmentItem[]) {
   let bestStart = 0;
   let bestEnd = -1;
@@ -557,6 +570,7 @@ export function deriveInvestmentSummary(
   data = monthlyInvestmentData,
   movements = capitalMovements,
   openingContribution = initialContribution,
+  basisYears = annualizedBasisYears,
 ) {
   const movementTotals = getCapitalMovementTotals(
     movements,
@@ -607,7 +621,7 @@ export function deriveInvestmentSummary(
     currentValue,
     totalProfit,
     totalReturnPct,
-    annualizedReturnPct: calculateAnnualizedReturn(totalReturnPct),
+    annualizedReturnPct: calculateAnnualizedReturn(totalReturnPct, basisYears),
     maxDrawdownPct: maxDrawdown.maxDrawdownPct,
     maxDrawdown,
     bestMonth,

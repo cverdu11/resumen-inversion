@@ -1,6 +1,7 @@
 import { formatMonthName } from "@/lib/formatters";
 import {
   deriveInvestmentSummary,
+  getAnnualizedBasisYears,
   type CapitalMovementItem,
   type MonthlyInvestmentItem,
   type WeeklyInvestmentItem,
@@ -50,6 +51,14 @@ function getNextMonthStart(monthKey: string) {
   const nextMonth = new Date(year, month, 1, 12);
 
   return nextMonth.toISOString().slice(0, 10);
+}
+
+function getDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function getMovementEffect(movement: InvestorDashboardMovementRow) {
@@ -116,6 +125,37 @@ function getDashboardUpdatedAt(
   }
 
   return dashboardDateFormatter.format(new Date(`${latestDate}T12:00:00`));
+}
+
+function getAnnualizedEndDate({
+  investor,
+  movements,
+  weeks,
+}: {
+  investor: InvestorDashboardInvestorRow;
+  movements: InvestorDashboardMovementRow[];
+  weeks: InvestorDashboardWeeklyRow[];
+}) {
+  const today = getDateKey(new Date());
+  const latestDataDate = [
+    investor.start_date,
+    ...movements.map((movement) => movement.movement_date),
+    ...weeks
+      .filter(
+        (week) =>
+          week.status === "closed" && week.week_end >= investor.start_date,
+      )
+      .map((week) => week.week_end),
+  ]
+    .filter((date) => date >= investor.start_date)
+    .sort()
+    .at(-1);
+
+  if (!latestDataDate || latestDataDate > today) {
+    return today > investor.start_date ? today : investor.start_date;
+  }
+
+  return latestDataDate;
 }
 
 function buildMonthlyData(
@@ -246,12 +286,26 @@ export function buildInvestorDashboardData({
       (week) => week.status === "closed" && week.week_end >= investor.start_date,
     ),
   );
+  const annualizedEndDate = getAnnualizedEndDate({
+    investor,
+    movements,
+    weeks: weeklyRows,
+  });
+  const annualizedBasisYears = getAnnualizedBasisYears(
+    investor.start_date,
+    annualizedEndDate,
+  );
 
   return {
     capitalMovements,
     dataUpdatedAt: getDashboardUpdatedAt(movements, weeklyRows),
     monthlyData,
-    summary: deriveInvestmentSummary(monthlyData, capitalMovements, 0),
+    summary: deriveInvestmentSummary(
+      monthlyData,
+      capitalMovements,
+      0,
+      annualizedBasisYears,
+    ),
     weeklyData,
   };
 }
