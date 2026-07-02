@@ -1,7 +1,10 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -45,12 +48,127 @@ import { cn } from "@/lib/utils";
 
 const rowsPerPage = 8;
 
+type MonthlySortKey =
+  | "contributions"
+  | "date"
+  | "finalValue"
+  | "gain"
+  | "initialValue"
+  | "returnPct"
+  | "withdrawals";
+type SortDirection = "asc" | "desc";
+
+type MonthlySortConfig = {
+  direction: SortDirection;
+  key: MonthlySortKey;
+};
+
+const firstMonthlySortDirection: Record<MonthlySortKey, SortDirection> = {
+  contributions: "desc",
+  date: "asc",
+  finalValue: "desc",
+  gain: "desc",
+  initialValue: "desc",
+  returnPct: "desc",
+  withdrawals: "desc",
+};
+
 function csvEscape(value: string | number) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
 
 function formatMovementAmount(movement: CapitalMovementItem) {
   return movement.type === "aportacion" ? movement.amount : -movement.amount;
+}
+
+function compareMonthlyRowsByKey(
+  left: MonthlyInvestmentItem,
+  right: MonthlyInvestmentItem,
+  sortKey: MonthlySortKey,
+) {
+  switch (sortKey) {
+    case "contributions":
+      return left.contributions - right.contributions;
+    case "date":
+      return left.date.localeCompare(right.date);
+    case "finalValue":
+      return left.finalValue - right.finalValue;
+    case "gain":
+      return left.gain - right.gain;
+    case "initialValue":
+      return left.initialValue - right.initialValue;
+    case "returnPct":
+      return left.returnPct - right.returnPct;
+    case "withdrawals":
+      return left.withdrawals - right.withdrawals;
+  }
+}
+
+function sortMonthlyRows(
+  rows: MonthlyInvestmentItem[],
+  sortConfig: MonthlySortConfig,
+) {
+  return [...rows].sort((left, right) => {
+    const directionMultiplier = sortConfig.direction === "asc" ? 1 : -1;
+    const primaryComparison =
+      compareMonthlyRowsByKey(left, right, sortConfig.key) *
+      directionMultiplier;
+
+    return primaryComparison !== 0
+      ? primaryComparison
+      : left.date.localeCompare(right.date);
+  });
+}
+
+function SortableMonthlyHead({
+  align = "left",
+  children,
+  className,
+  onSort,
+  sortConfig,
+  sortKey,
+}: {
+  align?: "left" | "right";
+  children: ReactNode;
+  className?: string;
+  onSort: (sortKey: MonthlySortKey) => void;
+  sortConfig: MonthlySortConfig;
+  sortKey: MonthlySortKey;
+}) {
+  const isActive = sortConfig.key === sortKey;
+  const ariaSort = isActive
+    ? sortConfig.direction === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+  const SortIcon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <TableHead aria-sort={ariaSort} className={className}>
+      <button
+        className={cn(
+          "inline-flex w-full items-center gap-1.5 rounded-md py-1 text-xs font-medium uppercase text-muted-foreground transition-colors hover:text-card-foreground",
+          align === "right" ? "justify-end" : "justify-start",
+          isActive && "text-card-foreground",
+        )}
+        onClick={() => onSort(sortKey)}
+        title="Ordenar"
+        type="button"
+      >
+        <span>{children}</span>
+        <SortIcon
+          className={cn(
+            "size-3.5 shrink-0",
+            isActive ? "text-primary" : "text-muted-foreground/70",
+          )}
+        />
+      </button>
+    </TableHead>
+  );
 }
 
 function WeeklyBreakdown({
@@ -272,12 +390,38 @@ export function MonthlySummaryTable({
 }) {
   const [page, setPage] = useState(1);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
-  const totalPages = Math.max(1, Math.ceil(monthlyData.length / rowsPerPage));
+  const [sortConfig, setSortConfig] = useState<MonthlySortConfig>({
+    direction: "asc",
+    key: "date",
+  });
+  const sortedRows = useMemo(
+    () => sortMonthlyRows(monthlyData, sortConfig),
+    [monthlyData, sortConfig],
+  );
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / rowsPerPage));
 
   const visibleRows = useMemo(() => {
     const start = (page - 1) * rowsPerPage;
-    return monthlyData.slice(start, start + rowsPerPage);
-  }, [monthlyData, page]);
+    return sortedRows.slice(start, start + rowsPerPage);
+  }, [page, sortedRows]);
+
+  function handleSort(sortKey: MonthlySortKey) {
+    setSortConfig((currentSort) => {
+      if (currentSort.key !== sortKey) {
+        return {
+          direction: firstMonthlySortDirection[sortKey],
+          key: sortKey,
+        };
+      }
+
+      return {
+        direction: currentSort.direction === "asc" ? "desc" : "asc",
+        key: sortKey,
+      };
+    });
+    setExpandedMonth(null);
+    setPage(1);
+  }
 
   function exportCsv() {
     const headers = [
@@ -289,7 +433,7 @@ export function MonthlySummaryTable({
       "Ganancia (€)",
       "Rentabilidad (%)",
     ];
-    const rows = monthlyData.map((item) => [
+    const rows = sortedRows.map((item) => [
       item.month,
       formatNumber(item.initialValue),
       formatNumber(item.contributions),
@@ -366,25 +510,68 @@ export function MonthlySummaryTable({
         <Table containerClassName="hidden max-h-[460px] md:block">
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-44">Mes</TableHead>
-              <TableHead className="min-w-40 text-right">
+              <SortableMonthlyHead
+                className="min-w-44"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="date"
+              >
+                Mes
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-40"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="initialValue"
+              >
                 Valor inicial (€)
-              </TableHead>
-              <TableHead className="min-w-36 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-36"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="contributions"
+              >
                 Aportaciones (€)
-              </TableHead>
-              <TableHead className="min-w-32 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-32"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="withdrawals"
+              >
                 Retiradas (€)
-              </TableHead>
-              <TableHead className="min-w-40 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-40"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="finalValue"
+              >
                 Valor final (€)
-              </TableHead>
-              <TableHead className="min-w-36 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-36"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="gain"
+              >
                 Ganancia (€)
-              </TableHead>
-              <TableHead className="min-w-36 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-36"
+                onSort={handleSort}
+                sortConfig={sortConfig}
+                sortKey="returnPct"
+              >
                 Rentabilidad (%)
-              </TableHead>
+              </SortableMonthlyHead>
             </TableRow>
           </TableHeader>
           <TableBody>

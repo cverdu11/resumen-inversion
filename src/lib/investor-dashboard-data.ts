@@ -207,16 +207,9 @@ function buildMonthlyData(
         ? total + (weeklyBase * Number(week.return_pct)) / 100
         : total;
     }, 0);
-    const averageBaseTotal = weeklyBases.reduce(
-      (total, weeklyBase) => total + weeklyBase,
-      0,
+    const returnPct = roundPercent(
+      monthWeeks.reduce((total, week) => total + Number(week.return_pct), 0),
     );
-    const averageBase =
-      monthWeeks.length > 0
-        ? averageBaseTotal / monthWeeks.length
-        : initialValue + monthMovementTotal;
-    const returnPct =
-      averageBase > 0 ? roundPercent((gain / averageBase) * 100) : 0;
     balance = initialValue + monthMovementTotal + gain;
     netCapital += monthMovementTotal;
     const finalValue = roundCurrency(balance);

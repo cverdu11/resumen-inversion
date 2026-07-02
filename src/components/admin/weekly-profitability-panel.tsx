@@ -1,8 +1,10 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ArrowDown,
+  ArrowUp,
   ArrowUpDown,
   CalendarDays,
   ChevronDown,
@@ -99,6 +101,20 @@ const fieldClassName =
 const openMonthsStorageKey = "resumen-inversion:weekly-profitability:open-months";
 
 type PeriodSort = "desc" | "asc";
+type MonthlyOverviewSortKey =
+  | "finalValue"
+  | "initialValue"
+  | "month"
+  | "movementTotal"
+  | "result"
+  | "returnPct"
+  | "weeks";
+type SortDirection = "asc" | "desc";
+
+type MonthlyOverviewSortConfig = {
+  direction: SortDirection;
+  key: MonthlyOverviewSortKey;
+};
 
 type MonthlyProfitabilitySummary = {
   averageBase: number;
@@ -117,6 +133,19 @@ type MonthlyProfitabilitySummary = {
 type PortfolioMovement = {
   amount: number;
   date: string;
+};
+
+const firstMonthlyOverviewSortDirection: Record<
+  MonthlyOverviewSortKey,
+  SortDirection
+> = {
+  finalValue: "desc",
+  initialValue: "desc",
+  month: "desc",
+  movementTotal: "desc",
+  result: "desc",
+  returnPct: "desc",
+  weeks: "desc",
 };
 
 function formatPeriodDate(date: string) {
@@ -204,6 +233,96 @@ function sortWeeksByPeriod(
   );
 }
 
+function compareMonthlySummariesByKey(
+  left: MonthlyProfitabilitySummary,
+  right: MonthlyProfitabilitySummary,
+  sortKey: MonthlyOverviewSortKey,
+) {
+  switch (sortKey) {
+    case "finalValue":
+      return left.finalValue - right.finalValue;
+    case "initialValue":
+      return left.initialValue - right.initialValue;
+    case "month":
+      return left.id.localeCompare(right.id);
+    case "movementTotal":
+      return left.movementTotal - right.movementTotal;
+    case "result":
+      return left.result - right.result;
+    case "returnPct":
+      return left.returnPct - right.returnPct;
+    case "weeks":
+      return left.savedWeeksCount - right.savedWeeksCount;
+  }
+}
+
+function sortMonthlySummaries(
+  summaries: MonthlyProfitabilitySummary[],
+  sortConfig: MonthlyOverviewSortConfig,
+) {
+  return [...summaries].sort((left, right) => {
+    const directionMultiplier = sortConfig.direction === "asc" ? 1 : -1;
+    const primaryComparison =
+      compareMonthlySummariesByKey(left, right, sortConfig.key) *
+      directionMultiplier;
+
+    return primaryComparison !== 0
+      ? primaryComparison
+      : right.id.localeCompare(left.id);
+  });
+}
+
+function SortableMonthlyHead({
+  align = "left",
+  children,
+  className,
+  onSort,
+  sortConfig,
+  sortKey,
+}: {
+  align?: "left" | "right";
+  children: ReactNode;
+  className?: string;
+  onSort: (sortKey: MonthlyOverviewSortKey) => void;
+  sortConfig: MonthlyOverviewSortConfig;
+  sortKey: MonthlyOverviewSortKey;
+}) {
+  const isActive = sortConfig.key === sortKey;
+  const ariaSort = isActive
+    ? sortConfig.direction === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+  const SortIcon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <TableHead aria-sort={ariaSort} className={className}>
+      <button
+        className={cn(
+          "inline-flex w-full items-center gap-1.5 rounded-md py-1 text-xs font-medium uppercase text-muted-foreground transition-colors hover:text-card-foreground",
+          align === "right" ? "justify-end" : "justify-start",
+          isActive && "text-card-foreground",
+        )}
+        onClick={() => onSort(sortKey)}
+        title="Ordenar"
+        type="button"
+      >
+        <span>{children}</span>
+        <SortIcon
+          className={cn(
+            "size-3.5 shrink-0",
+            isActive ? "text-primary" : "text-muted-foreground/70",
+          )}
+        />
+      </button>
+    </TableHead>
+  );
+}
+
 function parseOpenMonthIds(openMonths?: string) {
   const monthIds = (openMonths ?? "")
     .split(",")
@@ -264,6 +383,7 @@ function buildMonthlyProfitabilityOverview(
       const chronologicalWeeks = [...monthWeeks].sort((left, right) =>
         left.startDate.localeCompare(right.startDate),
       );
+      const savedMonthWeeks = chronologicalWeeks.filter((week) => week.isSaved);
 
       while (
         movementIndex < portfolioMovements.length &&
@@ -353,8 +473,9 @@ function buildMonthlyProfitabilityOverview(
 
       const averageBase =
         savedWeeksCount > 0 ? averageBaseTotal / savedWeeksCount : initialValue;
-      const returnPct =
-        averageBase > 0 ? roundMonthlyValue((result / averageBase) * 100) : 0;
+      const returnPct = roundMonthlyValue(
+        savedMonthWeeks.reduce((total, week) => total + week.returnPct, 0),
+      );
 
       return {
         averageBase: roundMonthlyValue(averageBase),
@@ -791,10 +912,16 @@ export function WeeklyProfitabilityPanel({
   weeklyStatus?: string;
   weeks: WeeklyProfitabilityItem[];
 }) {
-  const [periodSort, setPeriodSort] = useState<PeriodSort>("desc");
+  const [monthlySortConfig, setMonthlySortConfig] =
+    useState<MonthlyOverviewSortConfig>({
+      direction: "desc",
+      key: "month",
+    });
   const [expandedMonthIds, setExpandedMonthIds] = useState<string[]>(
     () => parseOpenMonthIds(openMonths) ?? readSavedOpenMonthIds() ?? [],
   );
+  const periodSort =
+    monthlySortConfig.key === "month" ? monthlySortConfig.direction : "desc";
   const currentWeek =
     weeks.find((week) => week.isCurrent) ??
     weeks.find((week) => week.status === "draft");
@@ -809,8 +936,12 @@ export function WeeklyProfitabilityPanel({
       "No se pudo guardar la rentabilidad semanal."
     : "";
   const monthlyOverview = useMemo(
-    () => buildMonthlyProfitabilityOverview(investors, weeks, periodSort),
-    [investors, periodSort, weeks],
+    () =>
+      sortMonthlySummaries(
+        buildMonthlyProfitabilityOverview(investors, weeks, periodSort),
+        monthlySortConfig,
+      ),
+    [investors, monthlySortConfig, periodSort, weeks],
   );
   const availableMonthIds = useMemo(
     () => new Set(monthlyOverview.map((summary) => summary.id)),
@@ -833,8 +964,20 @@ export function WeeklyProfitabilityPanel({
     });
   }
 
-  function togglePeriodSort() {
-    setPeriodSort((currentSort) => (currentSort === "desc" ? "asc" : "desc"));
+  function handleMonthlySort(sortKey: MonthlyOverviewSortKey) {
+    setMonthlySortConfig((currentSort) => {
+      if (currentSort.key !== sortKey) {
+        return {
+          direction: firstMonthlyOverviewSortDirection[sortKey],
+          key: sortKey,
+        };
+      }
+
+      return {
+        direction: currentSort.direction === "asc" ? "desc" : "asc",
+        key: sortKey,
+      };
+    });
   }
 
   return (
@@ -922,18 +1065,21 @@ export function WeeklyProfitabilityPanel({
               Resumen mensual
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Capital real con movimientos por fecha y base semanal ponderada
+              Capital real con movimientos por fecha y rentabilidad mensual del producto
             </p>
           </div>
           <Button
             className="justify-center"
-            onClick={togglePeriodSort}
+            onClick={() => handleMonthlySort("month")}
             size="sm"
             type="button"
             variant="outline"
           >
             <ArrowUpDown className="size-4" data-icon="inline-start" />
-            {periodSort === "desc" ? "Reciente primero" : "Antiguo primero"}
+            {monthlySortConfig.key === "month" &&
+            monthlySortConfig.direction === "asc"
+              ? "Antiguo primero"
+              : "Reciente primero"}
           </Button>
         </div>
 
@@ -959,21 +1105,68 @@ export function WeeklyProfitabilityPanel({
         <Table containerClassName="hidden md:block">
           <TableHeader className="bg-card/95">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-56">Mes</TableHead>
-              <TableHead className="min-w-36 text-right">
+              <SortableMonthlyHead
+                className="min-w-56"
+                onSort={handleMonthlySort}
+                sortConfig={monthlySortConfig}
+                sortKey="month"
+              >
+                Mes
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-36"
+                onSort={handleMonthlySort}
+                sortConfig={monthlySortConfig}
+                sortKey="initialValue"
+              >
                 Capital inicial
-              </TableHead>
-              <TableHead className="min-w-36 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-36"
+                onSort={handleMonthlySort}
+                sortConfig={monthlySortConfig}
+                sortKey="movementTotal"
+              >
                 Movimientos
-              </TableHead>
-              <TableHead className="min-w-36 text-right">Capital final</TableHead>
-              <TableHead className="min-w-32 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-36"
+                onSort={handleMonthlySort}
+                sortConfig={monthlySortConfig}
+                sortKey="finalValue"
+              >
+                Capital final
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-32"
+                onSort={handleMonthlySort}
+                sortConfig={monthlySortConfig}
+                sortKey="result"
+              >
                 Beneficio / perdida
-              </TableHead>
-              <TableHead className="min-w-32 text-right">
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-32"
+                onSort={handleMonthlySort}
+                sortConfig={monthlySortConfig}
+                sortKey="returnPct"
+              >
                 Rentabilidad
-              </TableHead>
-              <TableHead className="min-w-44 text-right">Semanas</TableHead>
+              </SortableMonthlyHead>
+              <SortableMonthlyHead
+                align="right"
+                className="min-w-44"
+                onSort={handleMonthlySort}
+                sortConfig={monthlySortConfig}
+                sortKey="weeks"
+              >
+                Semanas
+              </SortableMonthlyHead>
             </TableRow>
           </TableHeader>
           <TableBody>
