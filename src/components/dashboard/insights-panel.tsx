@@ -69,6 +69,18 @@ function getLatestTwelveLabel(
   return `${latestTwelve[0].month} - ${latestTwelve.at(-1)?.month}`;
 }
 
+function getInsightTone(value: number): InsightTone {
+  if (value > 0) {
+    return "positive";
+  }
+
+  if (value < 0) {
+    return "negative";
+  }
+
+  return "neutral";
+}
+
 export function InsightsPanel({
   investmentSummary = defaultInvestmentSummary,
   monthlyData = monthlyInvestmentData,
@@ -87,7 +99,7 @@ export function InsightsPanel({
       value: formatPercent(investmentSummary.bestMonth.returnPct, {
         sign: true,
       }),
-      tone: "positive",
+      tone: getInsightTone(investmentSummary.bestMonth.returnPct),
     },
     {
       icon: Target,
@@ -96,21 +108,21 @@ export function InsightsPanel({
       value: formatPercent(investmentSummary.worstMonth.returnPct, {
         sign: true,
       }),
-      tone: "negative",
+      tone: getInsightTone(investmentSummary.worstMonth.returnPct),
     },
     {
       icon: TrendingUp,
       title: "Mejor racha",
       detail: investmentSummary.bestPositiveStreak.label || "Sin racha",
       value: `${investmentSummary.bestPositiveStreak.months} meses`,
-      tone: "positive",
+      tone: getInsightTone(investmentSummary.bestPositiveStreak.months),
     },
     {
       icon: TrendingDown,
       title: "Maxima caida",
       detail: maxDrawdownPeriod,
       value: formatPercent(investmentSummary.maxDrawdownPct, { sign: true }),
-      tone: "negative",
+      tone: getInsightTone(investmentSummary.maxDrawdownPct),
     },
     {
       icon: CalendarDays,
@@ -119,8 +131,7 @@ export function InsightsPanel({
       value: formatPercent(investmentSummary.currentMonth.returnPct, {
         sign: true,
       }),
-      tone:
-        investmentSummary.currentMonth.returnPct >= 0 ? "positive" : "negative",
+      tone: getInsightTone(investmentSummary.currentMonth.returnPct),
     },
     {
       icon: Clock3,
@@ -132,10 +143,7 @@ export function InsightsPanel({
       value: formatPercent(investmentSummary.lastTwelveMonthsReturnPct, {
         sign: true,
       }),
-      tone:
-        investmentSummary.lastTwelveMonthsReturnPct >= 0
-          ? "positive"
-          : "negative",
+      tone: getInsightTone(investmentSummary.lastTwelveMonthsReturnPct),
     },
   ];
 

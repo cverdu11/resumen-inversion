@@ -29,6 +29,18 @@ import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 
 type AdminTab = "panel" | "rentabilidad";
 
+function getKpiTone(value: number) {
+  if (value > 0) {
+    return "positive" as const;
+  }
+
+  if (value < 0) {
+    return "negative" as const;
+  }
+
+  return "neutral" as const;
+}
+
 export function AdminDashboard({
   accessCredentials,
   accessError,
@@ -130,30 +142,21 @@ export function AdminDashboard({
       value: formatWholeCurrency(overview.totalProfit, { sign: true }),
       helper: "Beneficio agregado",
       icon: Coins,
-      tone:
-        overview.totalProfit >= 0
-          ? ("positive" as const)
-          : ("negative" as const),
+      tone: getKpiTone(overview.totalProfit),
     },
     {
       label: "Rentabilidad total",
       value: formatPercent(overview.totalProfitability, { sign: true }),
       helper: "Beneficio sobre capital neto",
       icon: BarChart3,
-      tone:
-        overview.totalProfitability >= 0
-          ? ("positive" as const)
-          : ("negative" as const),
+      tone: getKpiTone(overview.totalProfitability),
     },
     {
       label: "Rentabilidad semana actual",
       value: formatPercent(overview.currentWeekProfitability, { sign: true }),
       helper: "Semana en borrador",
       icon: TrendingUp,
-      tone:
-        overview.currentWeekProfitability >= 0
-          ? ("positive" as const)
-          : ("negative" as const),
+      tone: getKpiTone(overview.currentWeekProfitability),
     },
   ];
 

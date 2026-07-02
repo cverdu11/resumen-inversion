@@ -90,6 +90,18 @@ type InvestmentDashboardProps = {
   userEmail?: string;
 };
 
+function getKpiTone(value: number) {
+  if (value > 0) {
+    return "positive" as const;
+  }
+
+  if (value < 0) {
+    return "negative" as const;
+  }
+
+  return "neutral" as const;
+}
+
 export function InvestmentDashboard({
   dashboardData,
   loginStatus,
@@ -115,12 +127,10 @@ export function InvestmentDashboard({
   const [showLoginToast, setShowLoginToast] = useState(
     loginStatus === "success" && !requiresPasswordChange,
   );
-  const returnTone =
-    investmentSummary.totalReturnPct >= 0 ? "positive" : "negative";
-  const profitTone =
-    investmentSummary.totalProfit >= 0 ? "positive" : "negative";
-  const annualizedTone =
-    investmentSummary.annualizedReturnPct >= 0 ? "positive" : "negative";
+  const returnTone = getKpiTone(investmentSummary.totalReturnPct);
+  const profitTone = getKpiTone(investmentSummary.totalProfit);
+  const annualizedTone = getKpiTone(investmentSummary.annualizedReturnPct);
+  const drawdownTone = getKpiTone(investmentSummary.maxDrawdownPct);
   const kpis = [
     {
       label: "Capital neto aportado",
@@ -184,7 +194,7 @@ export function InvestmentDashboard({
       explanation:
         "Mayor caida desde un maximo historico hasta un punto posterior mas bajo. Sirve para ver el riesgo de retroceso.",
       icon: TrendingDown,
-      tone: "negative" as const,
+      tone: drawdownTone,
     },
   ] as const;
 

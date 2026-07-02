@@ -11,7 +11,7 @@ const signedCurrencyFormatter = new Intl.NumberFormat("es-ES", {
   currency: "EUR",
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
-  signDisplay: "always",
+  signDisplay: "exceptZero",
   useGrouping: "always",
 });
 
@@ -28,7 +28,7 @@ const signedCompactCurrencyFormatter = new Intl.NumberFormat("es-ES", {
   currency: "EUR",
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
-  signDisplay: "always",
+  signDisplay: "exceptZero",
   useGrouping: "always",
 });
 
@@ -41,7 +41,7 @@ const numberFormatter = new Intl.NumberFormat("es-ES", {
 const signedNumberFormatter = new Intl.NumberFormat("es-ES", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-  signDisplay: "always",
+  signDisplay: "exceptZero",
   useGrouping: "always",
 });
 
@@ -54,7 +54,7 @@ const wholeNumberFormatter = new Intl.NumberFormat("es-ES", {
 const signedWholeNumberFormatter = new Intl.NumberFormat("es-ES", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
-  signDisplay: "always",
+  signDisplay: "exceptZero",
   useGrouping: "always",
 });
 
@@ -84,13 +84,19 @@ const shortDateFormatter = new Intl.DateTimeFormat("es-ES", {
   month: "short",
 });
 
+function withoutRoundedZeroSign(value: number, fractionDigits: number) {
+  const zeroThreshold = 0.5 / 10 ** fractionDigits;
+
+  return Math.abs(value) < zeroThreshold ? 0 : value;
+}
+
 export function parseDate(date: string) {
   return new Date(`${date}T12:00:00`);
 }
 
 export function formatCurrency(value: number, options?: { sign?: boolean }) {
   return options?.sign
-    ? signedCurrencyFormatter.format(value)
+    ? signedCurrencyFormatter.format(withoutRoundedZeroSign(value, 0))
     : currencyFormatter.format(value);
 }
 
@@ -100,7 +106,7 @@ export function formatCompactCurrency(value: number) {
 
 export function formatWholeCurrency(value: number, options?: { sign?: boolean }) {
   return options?.sign
-    ? signedCompactCurrencyFormatter.format(value)
+    ? signedCompactCurrencyFormatter.format(withoutRoundedZeroSign(value, 0))
     : compactCurrencyFormatter.format(value);
 }
 
@@ -110,15 +116,18 @@ export function formatNumber(value: number) {
 
 export function formatPercent(value: number, options?: { sign?: boolean }) {
   const formatter = options?.sign ? signedNumberFormatter : numberFormatter;
-  return `${formatter.format(value)} %`;
+  const displayValue = options?.sign ? withoutRoundedZeroSign(value, 2) : value;
+
+  return `${formatter.format(displayValue)} %`;
 }
 
 export function formatWholePercent(value: number, options?: { sign?: boolean }) {
   const formatter = options?.sign
     ? signedWholeNumberFormatter
     : wholeNumberFormatter;
+  const displayValue = options?.sign ? withoutRoundedZeroSign(value, 0) : value;
 
-  return `${formatter.format(value)} %`;
+  return `${formatter.format(displayValue)} %`;
 }
 
 export function formatMonthName(date: string) {
@@ -157,5 +166,5 @@ export function valueTone(value: number) {
     return "text-danger";
   }
 
-  return "text-muted-foreground";
+  return "text-card-foreground";
 }
