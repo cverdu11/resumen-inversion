@@ -145,11 +145,6 @@ type MobileMetricCardProps = {
   value: string;
 };
 
-type MobileWeeklyChartPoint = {
-  monthLabel: string;
-  value: number;
-};
-
 const mobileMetricToneStyles: Record<
   MobileMetricTone,
   {
@@ -187,220 +182,6 @@ function getInvestorInitials(name: string | undefined, email: string) {
   return email.trim().slice(0, 2).toUpperCase() || "IN";
 }
 
-const mobileMonthFormatter = new Intl.DateTimeFormat("es-ES", {
-  month: "short",
-});
-
-function getCompactMonthLabel(date: string) {
-  const label = mobileMonthFormatter
-    .format(new Date(`${date}T12:00:00`))
-    .replace(".", "");
-
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function buildMobileWeeklyChartPoints(
-  weeklyData: WeeklyInvestmentItem[],
-  currentValue: number,
-) {
-  const recentWeeks = weeklyData.slice(-12);
-
-  if (!recentWeeks.length || currentValue <= 0) {
-    return [];
-  }
-
-  const recentFactor = recentWeeks.reduce(
-    (factor, week) => factor * (1 + week.returnPct / 100),
-    1,
-  );
-  let runningValue = recentFactor > 0 ? currentValue / recentFactor : currentValue;
-
-  return recentWeeks.map((week) => {
-    runningValue *= 1 + week.returnPct / 100;
-
-    return {
-      monthLabel: getCompactMonthLabel(week.monthDate || week.endDate),
-      value: runningValue,
-    };
-  });
-}
-
-function formatMobileAxisValue(value: number) {
-  return `${Math.round(value / 1000)}K`;
-}
-
-function MobileWeeklyValueChart({
-  points,
-}: {
-  points: MobileWeeklyChartPoint[];
-}) {
-  if (points.length < 2) {
-    return null;
-  }
-
-  const width = 190;
-  const height = 126;
-  const padding = {
-    bottom: 20,
-    left: 8,
-    right: 25,
-    top: 12,
-  };
-  const values = points.map((point) => point.value);
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
-  const verticalPad = Math.max((maxValue - minValue) * 0.28, maxValue * 0.025);
-  const axisMin = Math.max(0, minValue - verticalPad);
-  const axisMax = maxValue + verticalPad;
-  const range = Math.max(1, axisMax - axisMin);
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-  const coords = points.map((point, index) => {
-    const x =
-      padding.left +
-      (points.length === 1 ? 0 : (chartWidth * index) / (points.length - 1));
-    const y =
-      padding.top +
-      chartHeight -
-      ((point.value - axisMin) / range) * chartHeight;
-
-    return { ...point, x, y };
-  });
-  const linePath = coords
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
-  const baseY = height - padding.bottom;
-  const areaPath = `${linePath} L ${coords.at(-1)?.x ?? width} ${baseY} L ${
-    coords[0]?.x ?? 0
-  } ${baseY} Z`;
-  const monthLabelIndexes = coords.reduce<number[]>((indexes, point, index) => {
-    const isFirstMonthPoint =
-      index === 0 || point.monthLabel !== coords[index - 1]?.monthLabel;
-
-    if (isFirstMonthPoint) {
-      indexes.push(index);
-    }
-
-    return indexes;
-  }, []);
-  const labelIndexes =
-    monthLabelIndexes.length > 4
-      ? [
-          monthLabelIndexes[0],
-          monthLabelIndexes[Math.floor(monthLabelIndexes.length / 2)],
-          monthLabelIndexes[monthLabelIndexes.length - 1],
-        ].filter((item, index, source) => source.indexOf(item) === index)
-      : monthLabelIndexes;
-  const axisLabels = [axisMax, axisMin + range / 2, axisMin];
-
-  return (
-    <div
-      aria-label="Evolucion semanal del valor actual"
-      className="pointer-events-none absolute inset-y-4 right-2 w-[58%] opacity-95"
-      role="img"
-    >
-      <svg
-        className="h-full w-full overflow-visible"
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <defs>
-          <linearGradient id="mobile-weekly-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgb(34, 197, 94)" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="rgb(34, 197, 94)" stopOpacity="0" />
-          </linearGradient>
-          <filter
-            id="mobile-weekly-glow"
-            height="180%"
-            width="180%"
-            x="-40%"
-            y="-40%"
-          >
-            <feGaussianBlur stdDeviation="2.6" />
-          </filter>
-        </defs>
-        {[0.2, 0.5, 0.8].map((line) => (
-          <line
-            key={line}
-            stroke="rgba(255,255,255,0.07)"
-            strokeDasharray="2 5"
-            strokeWidth="1"
-            x1={padding.left}
-            x2={width - padding.right - 2}
-            y1={padding.top + chartHeight * line}
-            y2={padding.top + chartHeight * line}
-          />
-        ))}
-        <path d={areaPath} fill="url(#mobile-weekly-area)" />
-        <path
-          d={linePath}
-          fill="none"
-          filter="url(#mobile-weekly-glow)"
-          opacity="0.48"
-          stroke="rgb(34, 197, 94)"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="5"
-        />
-        <path
-          d={linePath}
-          fill="none"
-          stroke="rgb(31, 224, 128)"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2.8"
-        />
-        <circle
-          cx={coords.at(-1)?.x}
-          cy={coords.at(-1)?.y}
-          fill="#d7ffe8"
-          r="3.2"
-          stroke="rgb(31, 224, 128)"
-          strokeWidth="1.8"
-        />
-        {axisLabels.map((labelValue, index) => (
-          <text
-            fill="rgba(226,232,240,0.42)"
-            fontSize="7"
-            fontWeight="800"
-            key={labelValue}
-            textAnchor="end"
-            x={width - 1}
-            y={
-              padding.top +
-              chartHeight * (index === 0 ? 0.05 : index === 1 ? 0.5 : 0.95)
-            }
-          >
-            {formatMobileAxisValue(labelValue)}
-          </text>
-        ))}
-        {labelIndexes.map((index) => {
-          const point = coords[index];
-
-          return (
-            <text
-              fill="rgba(226,232,240,0.56)"
-              fontSize="7"
-              fontWeight="800"
-              key={`${point.monthLabel}-${index}`}
-              textAnchor={
-                index === 0
-                  ? "start"
-                  : index === points.length - 1
-                    ? "end"
-                    : "middle"
-              }
-              x={point.x}
-              y={height - 2}
-            >
-              {point.monthLabel}
-            </text>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
 function MobileMetricCard({
   helper,
   icon: Icon,
@@ -411,10 +192,10 @@ function MobileMetricCard({
   const styles = mobileMetricToneStyles[tone];
 
   return (
-    <article className="flex min-h-[122px] flex-col justify-between rounded-[1.35rem] border border-white/10 bg-[#1a1d19]/95 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.3)]">
+    <article className="flex min-h-[122px] flex-col justify-between rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(31,34,29,0.96),rgba(18,21,18,0.96))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_26px_rgba(0,0,0,0.26)]">
       <Icon
         className={cn(
-          "size-5",
+          "size-5 shrink-0",
           styles.icon,
         )}
         strokeWidth={2}
@@ -422,13 +203,13 @@ function MobileMetricCard({
       <div>
         <p
           className={cn(
-            "truncate text-[1.22rem] font-black leading-none tracking-[-0.04em]",
+            "truncate text-[1.2rem] font-black leading-none tracking-[-0.035em]",
             styles.value,
           )}
         >
           {value}
         </p>
-        <p className="mt-1.5 truncate text-[0.68rem] leading-3 text-card-foreground/72">
+        <p className="mt-1.5 truncate text-[0.66rem] leading-3 text-card-foreground/72">
           {helper}
         </p>
       </div>
@@ -577,10 +358,6 @@ export function InvestmentDashboard({
       value: drawdownDisplay,
     },
   ];
-  const mobileWeeklyChartPoints = buildMobileWeeklyChartPoints(
-    data.weeklyData,
-    investmentSummary.currentValue,
-  );
 
   useEffect(() => {
     if (loginStatus !== "success" || requiresPasswordChange) {
@@ -784,15 +561,15 @@ export function InvestmentDashboard({
 
   function renderMobileSummary() {
     return (
-      <div className="h-full">
+      <div className="h-full pb-8">
         <div className="mb-3">
           <h1 className="text-[2rem] font-black leading-none tracking-[-0.055em] text-white">
             Resumen
           </h1>
         </div>
 
-        <section className="relative h-[172px] overflow-hidden rounded-[1.65rem] border border-white/10 bg-[radial-gradient(circle_at_79%_49%,rgba(34,197,94,0.3),transparent_43%),linear-gradient(135deg,#191c18_0%,#151916_47%,#0e2116_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_38px_rgba(0,0,0,0.34)]">
-          <MobileWeeklyValueChart points={mobileWeeklyChartPoints} />
+        <section className="relative h-[154px] overflow-hidden rounded-[1.65rem] border border-white/[0.09] bg-[radial-gradient(circle_at_83%_36%,rgba(34,197,94,0.2),transparent_43%),linear-gradient(135deg,#1b1e19_0%,#141713_55%,#0b1710_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_38px_rgba(0,0,0,0.3)]">
+          <div className="pointer-events-none absolute inset-0 rounded-[1.65rem] bg-[linear-gradient(115deg,rgba(255,255,255,0.045),transparent_36%),radial-gradient(circle_at_86%_78%,rgba(16,185,129,0.12),transparent_40%)]" />
           <div className="relative z-10 flex h-full flex-col justify-between">
             <div className="min-w-0">
               <p className="text-[0.66rem] font-black uppercase tracking-[0.16em] text-muted-foreground">
@@ -802,14 +579,14 @@ export function InvestmentDashboard({
                 {formatWholeCurrency(investmentSummary.currentValue)}
               </p>
             </div>
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-positive/20 bg-positive-soft px-2.5 py-1.5 text-[0.66rem] font-black text-white">
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-positive/25 bg-positive-soft px-2.5 py-1.5 text-[0.66rem] font-black text-white shadow-[0_10px_24px_rgba(16,185,129,0.12)]">
               <Target className="size-3 text-positive" strokeWidth={2.2} />
               {totalReturnDisplay} total
             </span>
           </div>
         </section>
 
-        <section className="mt-3 grid grid-cols-2 gap-3">
+        <section className="mt-3.5 grid grid-cols-2 gap-3">
           {mobileSummaryCards.map((card) => (
             <MobileMetricCard key={card.label} {...card} />
           ))}
@@ -839,7 +616,7 @@ export function InvestmentDashboard({
     return (
       <main className="dashboard-grid relative flex h-[100dvh] min-h-[100svh] overflow-hidden bg-[#030507] text-white lg:hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_76%_17%,rgba(30,64,91,0.32),transparent_34%),linear-gradient(180deg,#050707_0%,#020407_100%)]" />
-        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+4.25rem)] pt-5">
+        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+5.4rem)] pt-5">
           <header className="relative mb-2 min-h-10">
             {renderAccountMenu("mobile")}
             {showLoginToast ? (
@@ -853,7 +630,7 @@ export function InvestmentDashboard({
             ) : null}
           </header>
 
-          <section className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <section className="no-scrollbar min-h-0 flex-1 overflow-y-auto pb-3">
             {activeMobileTab === "summary"
               ? renderMobileSummary()
               : renderMobileEmptyTab()}
@@ -862,7 +639,7 @@ export function InvestmentDashboard({
 
         <nav
           aria-label="Navegacion del panel inversor"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.6rem)] left-1/2 z-30 grid h-11 w-[18rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 grid-cols-4 rounded-[1.65rem] border border-white/14 bg-[linear-gradient(180deg,rgba(56,56,51,0.72),rgba(17,17,15,0.78))] p-[3px] shadow-[0_-8px_26px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(0,0,0,0.36)] backdrop-blur-2xl"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.8rem)] left-1/2 z-30 flex h-[5.15rem] w-[calc(100vw-0.8rem)] max-w-[25.8rem] -translate-x-1/2 items-stretch gap-1 overflow-hidden rounded-[2.85rem] border border-white/[0.12] bg-[rgba(14,14,13,0.74)] p-2 shadow-[0_-16px_46px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.035),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.58)] backdrop-blur-2xl"
         >
           {mobileInvestorTabs.map((tab) => {
             const Icon = tab.icon;
@@ -874,16 +651,19 @@ export function InvestmentDashboard({
                 type="button"
                 aria-pressed={isActive}
                 className={cn(
-                  "flex min-w-0 flex-col items-center justify-center gap-[1px] rounded-[1.45rem] px-1 text-[0.5rem] font-semibold leading-none text-white/80 transition-all duration-200",
+                  "relative flex h-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-[2.35rem] px-1 text-[0.8rem] font-semibold leading-none text-white/74 transition-all duration-200",
                   isActive
-                    ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.08))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_6px_16px_rgba(0,0,0,0.24)]"
-                    : "hover:bg-white/8",
+                    ? "z-10 flex-[1.45] bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] px-3 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_12px_24px_rgba(0,0,0,0.32)]"
+                    : "flex-1 hover:bg-white/8 hover:text-white",
                 )}
                 onClick={() => setActiveMobileTab(tab.id)}
               >
                 <Icon
-                  className={cn("size-3.5", isActive ? "text-positive" : "text-white/84")}
-                  strokeWidth={2.2}
+                  className={cn(
+                    "transition-transform duration-200",
+                    isActive ? "size-8 translate-y-[3px] text-white" : "size-6 text-white/86",
+                  )}
+                  strokeWidth={isActive ? 2.8 : 2.5}
                 />
                 <span className="truncate">{tab.label}</span>
               </button>
