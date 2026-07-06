@@ -153,15 +153,15 @@ const mobileMetricToneStyles: Record<
   }
 > = {
   negative: {
-    icon: "bg-danger-soft text-danger ring-danger/25",
+    icon: "text-danger",
     value: "text-danger",
   },
   neutral: {
-    icon: "bg-white/6 text-muted-foreground ring-white/10",
+    icon: "text-muted-foreground",
     value: "text-card-foreground",
   },
   positive: {
-    icon: "bg-positive-soft text-positive ring-positive/25",
+    icon: "text-positive",
     value: "text-positive",
   },
 };
@@ -192,15 +192,14 @@ function MobileMetricCard({
   const styles = mobileMetricToneStyles[tone];
 
   return (
-    <article className="flex min-h-[86px] flex-col justify-between rounded-[1.35rem] border border-white/10 bg-[#1a1d19]/95 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.3)]">
-      <div
+    <article className="flex min-h-[86px] flex-col justify-between rounded-[1.35rem] border border-white/10 bg-[#1a1d19]/95 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.3)]">
+      <Icon
         className={cn(
-          "grid size-8 place-items-center rounded-full ring-1",
+          "size-[1.15rem]",
           styles.icon,
         )}
-      >
-        <Icon className="size-4" strokeWidth={2} />
-      </div>
+        strokeWidth={2}
+      />
       <div>
         <p
           className={cn(
@@ -345,18 +344,18 @@ export function InvestmentDashboard({
       }),
     },
     {
-      helper: "Rentabilidad total",
-      icon: Target,
-      label: "Rentabilidad",
-      tone: returnTone,
-      value: totalReturnDisplay,
-    },
-    {
       helper: "Rentabilidad anualizada",
       icon: BarChart3,
       label: "Anualizada",
       tone: annualizedTone,
       value: annualizedReturnDisplay,
+    },
+    {
+      helper: "Maxima caida",
+      icon: TrendingDown,
+      label: "Maxima caida",
+      tone: drawdownTone,
+      value: drawdownDisplay,
     },
   ];
 
@@ -424,7 +423,7 @@ export function InvestmentDashboard({
           <span
             className={cn(
               "grid shrink-0 place-items-center rounded-full bg-primary/15 font-bold text-primary ring-1 ring-primary/25",
-              isMobile ? "size-12 text-base" : "size-9 text-sm",
+              isMobile ? "size-10 text-sm" : "size-9 text-sm",
             )}
           >
             {investorInitials}
@@ -433,7 +432,7 @@ export function InvestmentDashboard({
             <span
               className={cn(
                 "block font-medium text-muted-foreground",
-                isMobile ? "text-[0.64rem]" : "text-xs",
+                isMobile ? "sr-only" : "text-xs",
               )}
             >
               Cuenta inversor
@@ -441,13 +440,13 @@ export function InvestmentDashboard({
             <span
               className={cn(
                 "block truncate font-semibold text-card-foreground",
-                isMobile ? "max-w-[178px] text-[0.95rem]" : "text-sm",
+                isMobile ? "max-w-[178px] text-[0.9rem]" : "text-sm",
               )}
             >
               {isMobile ? displayInvestorName : investorEmail}
             </span>
             {isMobile ? (
-              <span className="mt-0.5 block text-[0.58rem] font-black uppercase tracking-[0.28em] text-muted-foreground">
+              <span className="mt-0.5 block text-[0.55rem] font-black uppercase tracking-[0.26em] text-muted-foreground">
                 Oro Negro
               </span>
             ) : null}
@@ -563,11 +562,8 @@ export function InvestmentDashboard({
   function renderMobileSummary() {
     return (
       <div className="h-full">
-        <div className="mb-2">
-          <p className="text-[0.62rem] font-black uppercase tracking-[0.26em] text-muted-foreground">
-            Vista privada
-          </p>
-          <h1 className="mt-1.5 text-[2.15rem] font-black leading-none tracking-[-0.055em] text-white">
+        <div className="mb-3">
+          <h1 className="text-[2rem] font-black leading-none tracking-[-0.055em] text-white">
             Resumen
           </h1>
         </div>
@@ -580,13 +576,10 @@ export function InvestmentDashboard({
           <p className="relative mt-3 text-[2.55rem] font-black leading-none tracking-[-0.06em] text-white">
             {formatWholeCurrency(investmentSummary.currentValue)}
           </p>
-          <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+          <div className="absolute bottom-3 left-4 right-4 flex items-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-positive/20 bg-positive-soft px-2.5 py-1.5 text-[0.68rem] font-black text-white">
               <Target className="size-3 text-positive" strokeWidth={2.2} />
               {totalReturnDisplay} total
-            </span>
-            <span className="text-[0.66rem] font-black text-muted-foreground">
-              CL1!
             </span>
           </div>
         </section>
@@ -596,25 +589,6 @@ export function InvestmentDashboard({
             <MobileMetricCard key={card.label} {...card} />
           ))}
         </section>
-
-        <article className="mt-2.5 flex h-[62px] items-center justify-between rounded-[1.35rem] border border-white/10 bg-[#1a1d19]/95 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.3)]">
-          <div>
-            <h2 className="text-sm font-black tracking-[-0.03em] text-white">
-              Maxima caida
-            </h2>
-            <p className="mt-0.5 text-[0.68rem] text-card-foreground/72">
-              Desde maximo historico
-            </p>
-          </div>
-          <p
-            className={cn(
-              "text-[1.16rem] font-black tracking-[-0.04em]",
-              mobileMetricToneStyles[drawdownTone].value,
-            )}
-          >
-            {drawdownDisplay}
-          </p>
-        </article>
       </div>
     );
   }
@@ -640,8 +614,8 @@ export function InvestmentDashboard({
     return (
       <main className="dashboard-grid relative flex h-[100dvh] min-h-[100svh] overflow-hidden bg-[#030507] text-white lg:hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_76%_17%,rgba(30,64,91,0.32),transparent_34%),linear-gradient(180deg,#050707_0%,#020407_100%)]" />
-        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+4.65rem)] pt-5">
-          <header className="relative mb-2 min-h-12">
+        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+4.25rem)] pt-5">
+          <header className="relative mb-2 min-h-10">
             {renderAccountMenu("mobile")}
             {showLoginToast ? (
               <div
@@ -663,7 +637,7 @@ export function InvestmentDashboard({
 
         <nav
           aria-label="Navegacion del panel inversor"
-          className="fixed inset-x-9 bottom-[calc(env(safe-area-inset-bottom)+0.45rem)] z-30 grid h-14 grid-cols-4 gap-0.5 rounded-full border border-white/15 bg-[linear-gradient(180deg,rgba(58,60,56,0.78),rgba(19,20,20,0.82))] p-1 shadow-[0_-8px_28px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-2xl"
+          className="fixed inset-x-10 bottom-[calc(env(safe-area-inset-bottom)+0.35rem)] z-30 grid h-[3.25rem] grid-cols-4 gap-0.5 rounded-full border border-white/12 bg-[linear-gradient(180deg,rgba(58,58,54,0.72),rgba(12,13,13,0.74))] p-1 shadow-[0_-6px_24px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl"
         >
           {mobileInvestorTabs.map((tab) => {
             const Icon = tab.icon;
@@ -675,15 +649,15 @@ export function InvestmentDashboard({
                 type="button"
                 aria-pressed={isActive}
                 className={cn(
-                  "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[0.56rem] font-black text-white transition-colors",
+                  "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[0.54rem] font-bold text-white transition-colors",
                   isActive
-                    ? "bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_26px_rgba(0,0,0,0.24)]"
-                    : "text-white/82 hover:bg-white/8",
+                    ? "bg-white/16 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_8px_18px_rgba(0,0,0,0.22)]"
+                    : "text-white/78 hover:bg-white/8",
                 )}
                 onClick={() => setActiveMobileTab(tab.id)}
               >
                 <Icon
-                  className={cn("size-4", isActive ? "text-positive" : "")}
+                  className="size-3.5"
                   strokeWidth={2.2}
                 />
                 <span className="truncate">{tab.label}</span>
