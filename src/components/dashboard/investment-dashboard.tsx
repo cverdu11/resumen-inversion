@@ -793,7 +793,7 @@ export function InvestmentDashboard({
     return (
       <main className="dashboard-grid relative flex h-[100dvh] min-h-[100svh] overflow-hidden bg-[#030507] text-white lg:hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_76%_17%,rgba(30,64,91,0.32),transparent_34%),linear-gradient(180deg,#050707_0%,#020407_100%)]" />
-        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+5.4rem)] pt-5">
+        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+4.85rem)] pt-5">
           <header className="relative mb-2 min-h-10">
             {renderAccountMenu("mobile")}
             {showLoginToast ? (
@@ -818,7 +818,7 @@ export function InvestmentDashboard({
 
         <nav
           aria-label="Navegacion del panel inversor"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.8rem)] left-1/2 z-30 flex h-[5.15rem] w-[calc(100vw-0.8rem)] max-w-[25.8rem] -translate-x-1/2 items-stretch gap-1 overflow-hidden rounded-[2.85rem] border border-white/[0.12] bg-[rgba(14,14,13,0.74)] p-2 shadow-[0_-16px_46px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.035),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.58)] backdrop-blur-2xl"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-30 flex h-[4.55rem] w-[calc(100vw-1rem)] max-w-[24.4rem] -translate-x-1/2 items-stretch gap-0.5 overflow-hidden rounded-[2.55rem] border border-white/[0.12] bg-[rgba(14,14,13,0.74)] p-1.5 shadow-[0_-14px_40px_rgba(0,0,0,0.48),0_0_0_1px_rgba(255,255,255,0.035),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.58)] backdrop-blur-2xl"
         >
           {mobileInvestorTabs.map((tab) => {
             const Icon = tab.icon;
@@ -830,7 +830,7 @@ export function InvestmentDashboard({
                 type="button"
                 aria-pressed={isActive}
                 className={cn(
-                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-[2.35rem] px-1 text-[0.8rem] font-semibold leading-none text-white/74",
+                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[0.08rem] rounded-[2.15rem] px-1 text-[0.68rem] font-semibold leading-none text-white/74",
                   isActive
                     ? "z-10 bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_12px_24px_rgba(0,0,0,0.32)]"
                     : "hover:bg-white/8 hover:text-white",
@@ -839,12 +839,12 @@ export function InvestmentDashboard({
               >
                 <Icon
                   className={cn(
-                    "size-6",
+                    "size-[1.42rem] translate-y-[3px]",
                     isActive ? "text-white" : "text-white/86",
                   )}
                   strokeWidth={2.5}
                 />
-                <span className="truncate">{tab.label}</span>
+                <span className="-translate-y-[2px] truncate">{tab.label}</span>
               </button>
             );
           })}
