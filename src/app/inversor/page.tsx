@@ -81,6 +81,7 @@ export default async function InvestorPage({ searchParams }: InvestorPageProps) 
   return (
     <InvestmentDashboard
       dashboardData={dashboardData}
+      investorName={investorName}
       loginStatus={params?.login_status}
       passwordError={params?.password_error}
       passwordStatus={params?.password_status}
