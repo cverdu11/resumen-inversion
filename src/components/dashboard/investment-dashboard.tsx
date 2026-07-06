@@ -6,10 +6,13 @@ import {
   BarChart3,
   CalendarDays,
   ChevronDown,
+  Clock3,
   Coins,
   Database,
+  Info,
   LogOut,
   Target,
+  Trophy,
   TrendingDown,
   TrendingUp,
   type LucideIcon,
@@ -27,10 +30,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   capitalMovements as defaultCapitalMovements,
   dataUpdatedAt as defaultDataUpdatedAt,
+  getPreviousMonthLabel,
   investmentSummary as defaultInvestmentSummary,
   type CapitalMovementItem,
   type InvestmentSummary,
@@ -39,7 +48,11 @@ import {
   type WeeklyInvestmentItem,
   weeklyInvestmentData,
 } from "@/lib/investment-data";
-import { formatWholeCurrency, formatWholePercent } from "@/lib/formatters";
+import {
+  formatPercent,
+  formatWholeCurrency,
+  formatWholePercent,
+} from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 const InvestmentChartCard = dynamic(
@@ -138,9 +151,18 @@ function getKpiTone(value: number) {
 type MobileMetricTone = "negative" | "neutral" | "positive";
 
 type MobileMetricCardProps = {
+  explanation?: string;
   helper: string;
   icon: LucideIcon;
   label: string;
+  tone: MobileMetricTone;
+  value: string;
+};
+
+type MobileInsightCardProps = {
+  detail: string;
+  icon: LucideIcon;
+  title: string;
   tone: MobileMetricTone;
   value: string;
 };
@@ -182,7 +204,21 @@ function getInvestorInitials(name: string | undefined, email: string) {
   return email.trim().slice(0, 2).toUpperCase() || "IN";
 }
 
+function getLatestTwelveLabel(
+  monthlyDataItems: MonthlyInvestmentItem[],
+  fallbackLabel: string,
+) {
+  const latestTwelve = monthlyDataItems.slice(-12);
+
+  if (latestTwelve.length <= 1) {
+    return fallbackLabel;
+  }
+
+  return `${latestTwelve[0].month} - ${latestTwelve.at(-1)?.month}`;
+}
+
 function MobileMetricCard({
+  explanation,
   helper,
   icon: Icon,
   label,
@@ -192,7 +228,26 @@ function MobileMetricCard({
   const styles = mobileMetricToneStyles[tone];
 
   return (
-    <article className="flex min-h-[122px] flex-col justify-between rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(31,34,29,0.96),rgba(18,21,18,0.96))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_26px_rgba(0,0,0,0.26)]">
+    <article className="relative flex min-h-[122px] flex-col justify-between rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(31,34,29,0.96),rgba(18,21,18,0.96))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_26px_rgba(0,0,0,0.26)]">
+      {explanation ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              aria-label={`Explicar ${label}`}
+              className="absolute right-3 top-3 grid size-6 place-items-center rounded-full text-muted-foreground/72 hover:bg-white/8 hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+              type="button"
+            >
+              <Info className="size-3.5" strokeWidth={2} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent align="end" className="max-w-[250px]" side="top">
+            <p className="font-semibold text-popover-foreground">{label}</p>
+            <p className="mt-1 leading-4 text-popover-foreground/84">
+              {explanation}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
       <Icon
         className={cn(
           "size-5 shrink-0",
@@ -214,6 +269,40 @@ function MobileMetricCard({
         </p>
       </div>
       <p className="sr-only">{label}</p>
+    </article>
+  );
+}
+
+function MobileInsightCard({
+  detail,
+  icon: Icon,
+  title,
+  tone,
+  value,
+}: MobileInsightCardProps) {
+  const styles = mobileMetricToneStyles[tone];
+
+  return (
+    <article className="flex min-h-[108px] flex-col justify-between rounded-[1.25rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(31,34,29,0.96),rgba(18,21,18,0.96))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_26px_rgba(0,0,0,0.24)]">
+      <div className="flex items-start justify-between gap-2">
+        <Icon className={cn("size-5 shrink-0", styles.icon)} strokeWidth={2} />
+        <p
+          className={cn(
+            "text-right text-[1.08rem] font-black leading-none tracking-[-0.035em]",
+            styles.value,
+          )}
+        >
+          {value}
+        </p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[0.74rem] font-bold leading-tight text-card-foreground">
+          {title}
+        </p>
+        <p className="mt-1 text-[0.62rem] leading-tight text-card-foreground/66">
+          {detail}
+        </p>
+      </div>
     </article>
   );
 }
@@ -266,6 +355,9 @@ export function InvestmentDashboard({
   const drawdownDisplay = formatWholePercent(investmentSummary.maxDrawdownPct, {
     sign: true,
   });
+  const maxDrawdownPeriod = data.monthlyData.length
+    ? getPreviousMonthLabel(data.monthlyData, investmentSummary.maxDrawdown)
+    : "Sin datos";
   const kpis = [
     {
       label: "Capital neto aportado",
@@ -328,6 +420,8 @@ export function InvestmentDashboard({
   ] as const;
   const mobileSummaryCards: MobileMetricCardProps[] = [
     {
+      explanation:
+        "Capital que has aportado menos retiradas. No incluye beneficios ni perdidas de mercado.",
       helper: "Capital neto aportado",
       icon: Database,
       label: "Capital neto",
@@ -335,6 +429,8 @@ export function InvestmentDashboard({
       value: formatWholeCurrency(investmentSummary.netCapitalContributed),
     },
     {
+      explanation:
+        "Ganancia o perdida en euros. Se calcula como valor actual mas retiradas menos todo el capital aportado.",
       helper: "Beneficio total",
       icon: Coins,
       label: "Beneficio",
@@ -344,6 +440,8 @@ export function InvestmentDashboard({
       }),
     },
     {
+      explanation:
+        "La rentabilidad total expresada como ritmo anual segun tus dias reales de inversion. En periodos cortos puede verse muy alta o muy baja.",
       helper: "Rentabilidad anualizada",
       icon: BarChart3,
       label: "Anualizada",
@@ -351,11 +449,70 @@ export function InvestmentDashboard({
       value: annualizedReturnDisplay,
     },
     {
+      explanation:
+        "Mayor caida desde un maximo historico hasta un punto posterior mas bajo. Sirve para ver el riesgo de retroceso.",
       helper: "Maxima caida",
       icon: TrendingDown,
       label: "Maxima caida",
       tone: drawdownTone,
       value: drawdownDisplay,
+    },
+  ];
+  const mobileInsightsCards: MobileInsightCardProps[] = [
+    {
+      detail: investmentSummary.bestMonth.month,
+      icon: Trophy,
+      title: "Mejor mes",
+      tone: getKpiTone(investmentSummary.bestMonth.returnPct),
+      value: formatPercent(investmentSummary.bestMonth.returnPct, {
+        sign: true,
+      }),
+    },
+    {
+      detail: investmentSummary.worstMonth.month,
+      icon: Target,
+      title: "Peor mes",
+      tone: getKpiTone(investmentSummary.worstMonth.returnPct),
+      value: formatPercent(investmentSummary.worstMonth.returnPct, {
+        sign: true,
+      }),
+    },
+    {
+      detail: investmentSummary.bestPositiveStreak.label || "Sin racha",
+      icon: TrendingUp,
+      title: "Mejor racha",
+      tone: getKpiTone(investmentSummary.bestPositiveStreak.months),
+      value: `${investmentSummary.bestPositiveStreak.months} meses`,
+    },
+    {
+      detail: maxDrawdownPeriod,
+      icon: TrendingDown,
+      title: "Maxima caida",
+      tone: getKpiTone(investmentSummary.maxDrawdownPct),
+      value: formatPercent(investmentSummary.maxDrawdownPct, {
+        sign: true,
+      }),
+    },
+    {
+      detail: investmentSummary.currentMonth.month,
+      icon: CalendarDays,
+      title: "Mes actual",
+      tone: getKpiTone(investmentSummary.currentMonth.returnPct),
+      value: formatPercent(investmentSummary.currentMonth.returnPct, {
+        sign: true,
+      }),
+    },
+    {
+      detail: getLatestTwelveLabel(
+        data.monthlyData,
+        investmentSummary.currentMonth.month,
+      ),
+      icon: Clock3,
+      title: "Ultimos 12 meses",
+      tone: getKpiTone(investmentSummary.lastTwelveMonthsReturnPct),
+      value: formatPercent(investmentSummary.lastTwelveMonthsReturnPct, {
+        sign: true,
+      }),
     },
   ];
 
@@ -586,9 +743,29 @@ export function InvestmentDashboard({
           </div>
         </section>
 
-        <section className="mt-3.5 grid grid-cols-2 gap-3">
-          {mobileSummaryCards.map((card) => (
-            <MobileMetricCard key={card.label} {...card} />
+        <TooltipProvider delayDuration={120}>
+          <section className="mt-3.5 grid grid-cols-2 gap-3">
+            {mobileSummaryCards.map((card) => (
+              <MobileMetricCard key={card.label} {...card} />
+            ))}
+          </section>
+        </TooltipProvider>
+      </div>
+    );
+  }
+
+  function renderMobileInsights() {
+    return (
+      <div className="h-full pb-8">
+        <div className="mb-3">
+          <h1 className="text-[2rem] font-black leading-none tracking-[-0.055em] text-white">
+            Insights
+          </h1>
+        </div>
+
+        <section className="grid grid-cols-2 gap-x-3.5 gap-y-4">
+          {mobileInsightsCards.map((card) => (
+            <MobileInsightCard key={card.title} {...card} />
           ))}
         </section>
       </div>
@@ -633,6 +810,8 @@ export function InvestmentDashboard({
           <section className="no-scrollbar min-h-0 flex-1 overflow-y-auto pb-3">
             {activeMobileTab === "summary"
               ? renderMobileSummary()
+              : activeMobileTab === "insights"
+                ? renderMobileInsights()
               : renderMobileEmptyTab()}
           </section>
         </div>
@@ -651,19 +830,19 @@ export function InvestmentDashboard({
                 type="button"
                 aria-pressed={isActive}
                 className={cn(
-                  "relative flex h-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-[2.35rem] px-1 text-[0.8rem] font-semibold leading-none text-white/74 transition-all duration-200",
+                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-[2.35rem] px-1 text-[0.8rem] font-semibold leading-none text-white/74",
                   isActive
-                    ? "z-10 flex-[1.45] bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] px-3 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_12px_24px_rgba(0,0,0,0.32)]"
-                    : "flex-1 hover:bg-white/8 hover:text-white",
+                    ? "z-10 bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_12px_24px_rgba(0,0,0,0.32)]"
+                    : "hover:bg-white/8 hover:text-white",
                 )}
                 onClick={() => setActiveMobileTab(tab.id)}
               >
                 <Icon
                   className={cn(
-                    "transition-transform duration-200",
-                    isActive ? "size-8 translate-y-[3px] text-white" : "size-6 text-white/86",
+                    "size-6",
+                    isActive ? "text-white" : "text-white/86",
                   )}
-                  strokeWidth={isActive ? 2.8 : 2.5}
+                  strokeWidth={2.5}
                 />
                 <span className="truncate">{tab.label}</span>
               </button>
