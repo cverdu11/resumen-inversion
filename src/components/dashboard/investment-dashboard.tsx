@@ -662,8 +662,7 @@ function MobileMonthlyCard({
             {month.month}
           </span>
           <span className="mt-1 block truncate text-[0.66rem] font-extrabold leading-tight text-muted-foreground">
-            {formatWholeCurrency(month.finalValue)} final ·{" "}
-            {formatMobileWeeksCount(weeks)}
+            {formatWholeCurrency(month.finalValue)} · {formatMobileWeeksCount(weeks)}
           </span>
         </span>
         <span
@@ -733,10 +732,10 @@ function MobileMonthlyCard({
 
               return (
                 <div
-                  className="grid grid-cols-[4.9rem_minmax(0,1fr)_3.1rem] items-center gap-2.5"
+                  className="grid grid-cols-[5.25rem_minmax(0,1fr)_4.05rem] items-center gap-2"
                   key={week.id}
                 >
-                  <p className="text-[0.68rem] font-black tracking-[-0.02em] text-card-foreground">
+                  <p className="truncate text-[0.66rem] font-black tracking-[-0.02em] text-card-foreground">
                     {formatMobileWeekRange(week.startDate, week.endDate)}
                   </p>
                   <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
@@ -754,7 +753,7 @@ function MobileMonthlyCard({
                   </div>
                   <p
                     className={cn(
-                      "text-right text-[0.68rem] font-black tabular-nums",
+                      "whitespace-nowrap text-right text-[0.66rem] font-black tabular-nums",
                       mobileMetricToneStyles[weeklyTone].value,
                     )}
                   >
@@ -1603,24 +1602,22 @@ export function InvestmentDashboard({
           </h1>
         </div>
 
-        <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
-          <h2 className="text-[1.45rem] font-black leading-none tracking-[-0.055em] text-white">
-            Meses
-          </h2>
-          <button
-            aria-label={`Cambiar orden. Orden actual: ${sortLabel}`}
-            className="inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 text-[0.66rem] font-black text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]"
-            onClick={() =>
-              setMobileMonthlySortOrder((currentOrder) =>
-                currentOrder === "newest" ? "oldest" : "newest",
-              )
-            }
-            type="button"
-          >
-            <ArrowUpDown className="size-3.5 text-card-foreground/80" strokeWidth={2} />
+        <div className="mb-3 flex items-center px-0.5">
+          <div className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.045] py-0.5 pl-0.5 pr-3 text-[0.66rem] font-black text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
+            <button
+              aria-label={`Cambiar orden. Orden actual: ${sortLabel}`}
+              className="grid size-7 place-items-center rounded-full text-card-foreground/82 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-positive/45"
+              onClick={() =>
+                setMobileMonthlySortOrder((currentOrder) =>
+                  currentOrder === "newest" ? "oldest" : "newest",
+                )
+              }
+              type="button"
+            >
+              <ArrowUpDown className="size-3.5" strokeWidth={2} />
+            </button>
             <span>{sortLabel}</span>
-            <ChevronDown className="size-3 text-muted-foreground/70" strokeWidth={2.2} />
-          </button>
+          </div>
         </div>
 
         <section className="grid gap-3">
