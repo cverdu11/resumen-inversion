@@ -871,7 +871,7 @@ export function InvestmentDashboard({
               >
                 <Icon
                   className={cn(
-                    "size-[1.2rem] translate-y-[1px]",
+                    "size-[1.2rem]",
                     isActive ? "text-white" : "text-white/86",
                   )}
                   strokeWidth={2.5}
