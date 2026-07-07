@@ -859,7 +859,7 @@ export function InvestmentDashboard({
                 type="button"
                 aria-pressed={isActive}
                 className={cn(
-                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[0.07rem] rounded-[1.85rem] px-[0.2rem] text-white/74",
+                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[0.14rem] rounded-[1.85rem] px-[0.2rem] text-white/74",
                   isActive
                     ? "z-10 bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_10px_20px_rgba(0,0,0,0.32)]"
                     : "hover:bg-white/8 hover:text-white",
@@ -871,12 +871,12 @@ export function InvestmentDashboard({
               >
                 <Icon
                   className={cn(
-                    "size-[1.2rem] translate-y-[2.5px]",
+                    "size-[1.2rem] translate-y-[1px]",
                     isActive ? "text-white" : "text-white/86",
                   )}
                   strokeWidth={2.5}
                 />
-                <span className="-translate-y-[1.7px] truncate text-[0.50rem] font-semibold leading-none">
+                <span className="-translate-y-[0.4px] truncate text-[0.50rem] font-semibold leading-none">
                   {tab.label}
                 </span>
               </button>
