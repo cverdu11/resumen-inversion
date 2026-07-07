@@ -388,9 +388,9 @@ function createMobileChartGeometry(
   const width = 320;
   const height = 176;
   const padding = {
-    bottom: 28,
-    left: 4,
-    right: 4,
+    bottom: 36,
+    left: 24,
+    right: 22,
     top: 12,
   };
   const values = points.flatMap((point) => [point.value, point.invested]);
@@ -595,7 +595,7 @@ function MobileInvestmentChartCard({
             <p className="text-[0.66rem] font-black uppercase tracking-[0.16em] text-muted-foreground">
               Evolucion
             </p>
-            <p className="mt-2 text-[2.08rem] font-black leading-none tracking-[-0.06em] text-white">
+            <p className="mt-2 text-[2.28rem] font-black leading-none tracking-[-0.06em] text-white">
               {currentValue}
             </p>
           </div>
@@ -670,8 +670,8 @@ function MobileInvestmentChartCard({
                     <line
                       stroke="rgba(255,255,255,0.08)"
                       strokeDasharray="3 7"
-                      x1="4"
-                      x2="316"
+                      x1="18"
+                      x2="302"
                       y1={line.y}
                       y2={line.y}
                     />
@@ -680,7 +680,7 @@ function MobileInvestmentChartCard({
                       fontSize="8"
                       fontWeight="700"
                       textAnchor="end"
-                      x="315"
+                      x="304"
                       y={line.y - 4}
                     >
                       {line.label}
@@ -698,26 +698,40 @@ function MobileInvestmentChartCard({
                   strokeWidth="3.2"
                 />
                 {selectedMarker ? (
-                  <>
-                    <line
-                      stroke="rgba(186, 230, 253, 0.46)"
-                      strokeWidth="1"
-                      x1={selectedMarker.x}
-                      x2={selectedMarker.x}
-                      y1="12"
-                      y2="148"
-                    />
-                    <circle
-                      cx={selectedMarker.x}
-                      cy={selectedMarker.y}
-                      fill="#28e184"
-                      r="4.8"
-                      stroke="#dcfce7"
-                      strokeWidth="2"
-                    />
-                  </>
+                  <line
+                    stroke="rgba(186, 230, 253, 0.46)"
+                    strokeWidth="1"
+                    x1={selectedMarker.x}
+                    x2={selectedMarker.x}
+                    y1="12"
+                    y2="140"
+                  />
                 ) : null}
-                {geometry.latest && !selectedMarker ? (
+                {geometry.markers.map((marker) => {
+                  const isSelected =
+                    selectedMarker?.monthDate === marker.monthDate;
+                  const isLatest =
+                    series.latestPoint?.monthDate === marker.monthDate;
+
+                  return (
+                    <circle
+                      cx={marker.x}
+                      cy={marker.y}
+                      fill={isSelected || isLatest ? "#28e184" : "#0b2015"}
+                      key={marker.monthDate}
+                      r={isSelected ? "5.4" : isLatest ? "4.8" : "3.6"}
+                      stroke={
+                        isSelected
+                          ? "#f8fff9"
+                          : isLatest
+                            ? "#dcfce7"
+                            : "rgba(40,225,132,0.74)"
+                      }
+                      strokeWidth={isSelected || isLatest ? "2" : "1.6"}
+                    />
+                  );
+                })}
+                {geometry.latest && !geometry.markers.length ? (
                   <circle
                     cx={geometry.latest.x}
                     cy={geometry.latest.y}
@@ -741,16 +755,27 @@ function MobileInvestmentChartCard({
                   </text>
                 ))}
               </svg>
-              {geometry.markers.map((marker) => (
-                <button
-                  aria-label={`Ver detalle de ${marker.point.monthLabel}`}
-                  className="absolute bottom-7 top-3 z-20 w-8 -translate-x-1/2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-positive/50"
-                  key={marker.monthDate}
-                  onClick={() => setSelectedMonthDate(marker.monthDate)}
-                  style={{ left: `${(marker.x / 320) * 100}%` }}
-                  type="button"
-                />
-              ))}
+              <div className="absolute inset-x-2 bottom-2 top-3 z-20">
+                {geometry.markers.map((marker) => (
+                  <button
+                    aria-label={`Ver detalle de ${marker.point.monthLabel}`}
+                    className="absolute size-10 -translate-x-1/2 -translate-y-1/2 rounded-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-positive/50"
+                    key={marker.monthDate}
+                    onClick={() =>
+                      setSelectedMonthDate((currentMonthDate) =>
+                        currentMonthDate === marker.monthDate
+                          ? null
+                          : marker.monthDate,
+                      )
+                    }
+                    style={{
+                      left: `${(marker.x / 320) * 100}%`,
+                      top: `${(marker.y / 176) * 100}%`,
+                    }}
+                    type="button"
+                  />
+                ))}
+              </div>
               {selectedMarker ? (
                 <div
                   className="pointer-events-none absolute top-7 z-30 w-[15rem] rounded-[0.85rem] border border-white/12 bg-[#0b1720]/95 px-3 py-3 text-[0.68rem] shadow-[0_18px_42px_rgba(0,0,0,0.5)] backdrop-blur-xl"
