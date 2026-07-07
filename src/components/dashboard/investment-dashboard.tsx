@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
+  ArrowUpDown,
   BarChart3,
   CalendarDays,
   ChevronDown,
@@ -51,6 +52,7 @@ import {
   formatCompactSpanishMonth,
   formatFullDate,
   formatPercent,
+  formatShortDate,
   formatWholeCurrency,
   formatWholePercent,
 } from "@/lib/formatters";
@@ -209,9 +211,26 @@ type MobileChartCardProps = {
   totalReturnDisplay: string;
 };
 
+type MobileMonthlySortOrder = "newest" | "oldest";
+
+type MobileMonthlyCardProps = {
+  isExpanded: boolean;
+  month: MonthlyInvestmentItem;
+  onToggle: () => void;
+  weeks: WeeklyInvestmentItem[];
+};
+
 const mobileChartRangeOptions = rangeOptions.filter((option) =>
   ["3M", "6M", "12M", "TODO"].includes(option),
 );
+
+const mobileWeekDayFormatter = new Intl.DateTimeFormat("es-ES", {
+  day: "2-digit",
+});
+
+const mobileWeekMonthFormatter = new Intl.DateTimeFormat("es-ES", {
+  month: "short",
+});
 
 const mobileMetricToneStyles: Record<
   MobileMetricTone,
@@ -261,6 +280,46 @@ function getLatestTwelveLabel(
   }
 
   return `${latestTwelve[0].month} - ${latestTwelve.at(-1)?.month}`;
+}
+
+function formatMobileWeekRange(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T12:00:00`);
+  const end = new Date(`${endDate}T12:00:00`);
+  const startMonth = startDate.slice(0, 7);
+  const endMonth = endDate.slice(0, 7);
+
+  if (startMonth === endMonth) {
+    const startDay = mobileWeekDayFormatter.format(start);
+    const endDay = mobileWeekDayFormatter.format(end);
+    const month = mobileWeekMonthFormatter
+      .format(end)
+      .replace(".", "")
+      .toLowerCase();
+
+    return `${startDay}-${endDay} ${month}`;
+  }
+
+  return `${formatShortDate(startDate).toLowerCase()} - ${formatShortDate(
+    endDate,
+  ).toLowerCase()}`;
+}
+
+function getDefaultMobileMonthlyExpandedMonth(
+  monthlyDataItems: MonthlyInvestmentItem[],
+) {
+  const latestUsefulMonth = [...monthlyDataItems]
+    .reverse()
+    .find((month) => month.returnPct !== 0 || month.gain !== 0);
+
+  return latestUsefulMonth?.date ?? monthlyDataItems.at(-1)?.date ?? null;
+}
+
+function formatMobileWeeksCount(weeks: WeeklyInvestmentItem[]) {
+  if (!weeks.length) {
+    return "Sin semanas";
+  }
+
+  return `${weeks.length} ${weeks.length === 1 ? "semana" : "semanas"}`;
 }
 
 function formatMobileAxisValue(value: number) {
@@ -565,6 +624,148 @@ function MobileInsightCard({
           {detail}
         </p>
       </div>
+    </article>
+  );
+}
+
+function MobileMonthlyCard({
+  isExpanded,
+  month,
+  onToggle,
+  weeks,
+}: MobileMonthlyCardProps) {
+  const returnTone = getKpiTone(month.returnPct);
+  const gainTone = getKpiTone(month.gain);
+  const maxWeeklyReturn = Math.max(
+    1,
+    ...weeks.map((week) => Math.abs(week.returnPct)),
+  );
+
+  return (
+    <article
+      className={cn(
+        "relative overflow-hidden rounded-[1.35rem] border bg-[linear-gradient(145deg,rgba(31,34,29,0.96),rgba(18,21,18,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_26px_rgba(0,0,0,0.24)]",
+        isExpanded
+          ? "border-positive/24 bg-[radial-gradient(circle_at_83%_13%,rgba(34,197,94,0.18),transparent_36%),linear-gradient(145deg,rgba(31,34,29,0.98),rgba(13,18,15,0.98))]"
+          : "border-white/[0.08]",
+      )}
+    >
+      <button
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${month.month}`}
+        className="grid w-full grid-cols-[minmax(0,1fr)_auto_2rem] items-center gap-3 px-4 py-4 text-left"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-[1rem] font-black leading-tight tracking-[-0.035em] text-card-foreground">
+            {month.month}
+          </span>
+          <span className="mt-1 block truncate text-[0.66rem] font-extrabold leading-tight text-muted-foreground">
+            {formatWholeCurrency(month.finalValue)} final ·{" "}
+            {formatMobileWeeksCount(weeks)}
+          </span>
+        </span>
+        <span
+          className={cn(
+            "shrink-0 pr-1 text-[1.45rem] font-black leading-none tracking-[-0.055em]",
+            mobileMetricToneStyles[returnTone].value,
+          )}
+        >
+          {formatPercent(month.returnPct, { sign: true })}
+        </span>
+        <span
+          className={cn(
+            "grid size-8 place-items-center rounded-full border bg-black/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]",
+            isExpanded
+              ? "border-positive/22 text-positive"
+              : "border-white/[0.08] text-card-foreground/72",
+          )}
+        >
+          <ChevronDown
+            className={cn("size-4", isExpanded && "rotate-180")}
+            strokeWidth={2.3}
+          />
+        </span>
+      </button>
+
+      {isExpanded ? (
+        <div className="px-4 pb-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-[0.95rem] border border-white/[0.05] bg-black/18 px-3 py-2.5">
+              <p className="text-[0.62rem] font-black uppercase tracking-[0.13em] text-muted-foreground">
+                Inicial
+              </p>
+              <p className="mt-1 text-[0.82rem] font-black tracking-[-0.035em] text-card-foreground">
+                {formatWholeCurrency(month.initialValue)}
+              </p>
+            </div>
+            <div className="rounded-[0.95rem] border border-white/[0.05] bg-black/18 px-3 py-2.5">
+              <p className="text-[0.62rem] font-black uppercase tracking-[0.13em] text-muted-foreground">
+                Final
+              </p>
+              <p className="mt-1 text-[0.82rem] font-black tracking-[-0.035em] text-card-foreground">
+                {formatWholeCurrency(month.finalValue)}
+              </p>
+            </div>
+            <div className="rounded-[0.95rem] border border-white/[0.05] bg-black/18 px-3 py-2.5">
+              <p className="text-[0.62rem] font-black uppercase tracking-[0.13em] text-muted-foreground">
+                Beneficio
+              </p>
+              <p
+                className={cn(
+                  "mt-1 text-[0.82rem] font-black tracking-[-0.035em]",
+                  mobileMetricToneStyles[gainTone].value,
+                )}
+              >
+                {formatWholeCurrency(month.gain, { sign: true })}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2.5">
+            {weeks.map((week) => {
+              const weeklyTone = getKpiTone(week.returnPct);
+              const width = Math.max(
+                8,
+                Math.round((Math.abs(week.returnPct) / maxWeeklyReturn) * 100),
+              );
+
+              return (
+                <div
+                  className="grid grid-cols-[4.9rem_minmax(0,1fr)_3.1rem] items-center gap-2.5"
+                  key={week.id}
+                >
+                  <p className="text-[0.68rem] font-black tracking-[-0.02em] text-card-foreground">
+                    {formatMobileWeekRange(week.startDate, week.endDate)}
+                  </p>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div
+                      className={cn(
+                        "h-full rounded-full shadow-[0_0_14px_rgba(45,242,139,0.26)]",
+                        weeklyTone === "negative"
+                          ? "bg-danger"
+                          : weeklyTone === "positive"
+                            ? "bg-positive"
+                            : "bg-card-foreground/40",
+                      )}
+                      style={{ width: `${width}%` }}
+                    />
+                  </div>
+                  <p
+                    className={cn(
+                      "text-right text-[0.68rem] font-black tabular-nums",
+                      mobileMetricToneStyles[weeklyTone].value,
+                    )}
+                  >
+                    {formatPercent(week.returnPct, { sign: true })}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -897,6 +1098,11 @@ export function InvestmentDashboard({
   const [activeMobileInfo, setActiveMobileInfo] = useState<string | null>(null);
   const [mobileChartRange, setMobileChartRange] =
     useState<RangeKey>("TODO");
+  const [mobileMonthlySortOrder, setMobileMonthlySortOrder] =
+    useState<MobileMonthlySortOrder>("newest");
+  const [expandedMobileMonth, setExpandedMobileMonth] = useState<string | null>(
+    () => getDefaultMobileMonthlyExpandedMonth(data.monthlyData),
+  );
   const returnTone = getKpiTone(investmentSummary.totalReturnPct);
   const profitTone = getKpiTone(investmentSummary.totalProfit);
   const annualizedTone = getKpiTone(investmentSummary.annualizedReturnPct);
@@ -1085,6 +1291,13 @@ export function InvestmentDashboard({
       ),
     [data.monthlyData, data.weeklyData, mobileChartRange],
   );
+  const mobileMonthlyRows = useMemo(() => {
+    return [...data.monthlyData].sort((left, right) =>
+      mobileMonthlySortOrder === "newest"
+        ? right.date.localeCompare(left.date)
+        : left.date.localeCompare(right.date),
+    );
+  }, [data.monthlyData, mobileMonthlySortOrder]);
 
   useEffect(() => {
     if (loginStatus !== "success" || requiresPasswordChange) {
@@ -1376,6 +1589,64 @@ export function InvestmentDashboard({
     );
   }
 
+  function renderMobileMonthly() {
+    const sortLabel =
+      mobileMonthlySortOrder === "newest"
+        ? "Reciente primero"
+        : "Antiguo primero";
+
+    return (
+      <div className="h-full pb-8">
+        <div className="mb-5">
+          <h1 className="text-[2rem] font-black leading-none tracking-[-0.055em] text-white">
+            Mensual
+          </h1>
+        </div>
+
+        <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
+          <h2 className="text-[1.45rem] font-black leading-none tracking-[-0.055em] text-white">
+            Meses
+          </h2>
+          <button
+            aria-label={`Cambiar orden. Orden actual: ${sortLabel}`}
+            className="inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 text-[0.66rem] font-black text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]"
+            onClick={() =>
+              setMobileMonthlySortOrder((currentOrder) =>
+                currentOrder === "newest" ? "oldest" : "newest",
+              )
+            }
+            type="button"
+          >
+            <ArrowUpDown className="size-3.5 text-card-foreground/80" strokeWidth={2} />
+            <span>{sortLabel}</span>
+            <ChevronDown className="size-3 text-muted-foreground/70" strokeWidth={2.2} />
+          </button>
+        </div>
+
+        <section className="grid gap-3">
+          {mobileMonthlyRows.map((month) => {
+            const weeks = getWeeklyItemsForMonth(month.date, data.weeklyData);
+            const isExpanded = expandedMobileMonth === month.date;
+
+            return (
+              <MobileMonthlyCard
+                isExpanded={isExpanded}
+                key={month.date}
+                month={month}
+                onToggle={() =>
+                  setExpandedMobileMonth((currentMonth) =>
+                    currentMonth === month.date ? null : month.date,
+                  )
+                }
+                weeks={weeks}
+              />
+            );
+          })}
+        </section>
+      </div>
+    );
+  }
+
   function renderMobileEmptyTab() {
     const activeTab = mobileInvestorTabs.find(
       (tab) => tab.id === activeMobileTab,
@@ -1418,6 +1689,8 @@ export function InvestmentDashboard({
                 ? renderMobileChart()
               : activeMobileTab === "insights"
                 ? renderMobileInsights()
+              : activeMobileTab === "monthly"
+                ? renderMobileMonthly()
               : renderMobileEmptyTab()}
           </section>
         </div>
