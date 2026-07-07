@@ -15,6 +15,7 @@ import {
   Trophy,
   TrendingDown,
   TrendingUp,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -778,14 +779,22 @@ function MobileInvestmentChartCard({
               </div>
               {selectedMarker ? (
                 <div
-                  className="pointer-events-none absolute top-7 z-30 w-[15rem] rounded-[0.85rem] border border-white/12 bg-[#0b1720]/95 px-3 py-3 text-[0.68rem] shadow-[0_18px_42px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                  className="pointer-events-auto absolute top-7 z-30 w-[15rem] rounded-[0.85rem] border border-white/12 bg-[#0b1720]/95 px-3 py-3 text-[0.68rem] shadow-[0_18px_42px_rgba(0,0,0,0.5)] backdrop-blur-xl"
                   style={
                     selectedMarker.x < 164
                       ? { left: "0.9rem" }
                       : { right: "0.9rem" }
                   }
                 >
-                  <p className="font-black text-card-foreground">
+                  <button
+                    aria-label="Cerrar detalle mensual"
+                    className="absolute right-2 top-2 grid size-7 place-items-center rounded-full text-card-foreground/58 transition-colors hover:bg-white/8 hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-positive/50"
+                    onClick={() => setSelectedMonthDate(null)}
+                    type="button"
+                  >
+                    <X className="size-3.5" strokeWidth={2.2} />
+                  </button>
+                  <p className="pr-8 font-black text-card-foreground">
                     {formatFullDate(selectedMarker.point.monthDate)}
                   </p>
                   <div className="mt-2.5 grid gap-1.5">
