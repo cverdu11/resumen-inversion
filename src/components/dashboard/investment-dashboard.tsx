@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   BarChart3,
@@ -34,16 +34,21 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   capitalMovements as defaultCapitalMovements,
   dataUpdatedAt as defaultDataUpdatedAt,
+  filterDataByRange,
   getPreviousMonthLabel,
   investmentSummary as defaultInvestmentSummary,
   type CapitalMovementItem,
   type InvestmentSummary,
   type MonthlyInvestmentItem,
   monthlyInvestmentData,
+  type RangeKey,
+  rangeOptions,
   type WeeklyInvestmentItem,
   weeklyInvestmentData,
 } from "@/lib/investment-data";
 import {
+  formatCompactSpanishMonth,
+  formatFullDate,
   formatPercent,
   formatWholeCurrency,
   formatWholePercent,
@@ -165,6 +170,48 @@ type MobileInsightCardProps = {
   value: string;
 };
 
+type MobileChartPoint = {
+  accumulatedReturnPct: number;
+  date: string;
+  id: string;
+  invested: number;
+  isMonthStart: boolean;
+  monthDate: string;
+  monthLabel: string;
+  monthlyReturnPct: number;
+  value: number;
+};
+
+type MobileChartSeries = {
+  highPoint?: MobileChartPoint;
+  latestPoint?: MobileChartPoint;
+  lowPoint?: MobileChartPoint;
+  periodLabel: string;
+  points: MobileChartPoint[];
+  rangeReturnPct: number;
+};
+
+type MobileChartGeometry = {
+  areaPath: string;
+  gridLines: Array<{ y: number; label: string }>;
+  linePath: string;
+  latest?: { x: number; y: number };
+  markers: Array<{ monthDate: string; point: MobileChartPoint; x: number; y: number }>;
+  ticks: Array<{ label: string; x: number }>;
+};
+
+type MobileChartCardProps = {
+  currentValue: string;
+  onRangeChange: (range: RangeKey) => void;
+  range: RangeKey;
+  series: MobileChartSeries;
+  totalReturnDisplay: string;
+};
+
+const mobileChartRangeOptions = rangeOptions.filter((option) =>
+  ["3M", "6M", "12M", "TODO"].includes(option),
+);
+
 const mobileMetricToneStyles: Record<
   MobileMetricTone,
   {
@@ -213,6 +260,206 @@ function getLatestTwelveLabel(
   }
 
   return `${latestTwelve[0].month} - ${latestTwelve.at(-1)?.month}`;
+}
+
+function formatMobileAxisValue(value: number) {
+  return `${Math.round(value / 1000)}K`;
+}
+
+function getCompoundReturnPct(items: MonthlyInvestmentItem[]) {
+  return (
+    (items.reduce((factor, item) => factor * (1 + item.returnPct / 100), 1) -
+      1) *
+    100
+  );
+}
+
+function getWeeklyItemsForMonth(
+  monthDate: string,
+  weeklyDataItems: WeeklyInvestmentItem[],
+) {
+  return weeklyDataItems.filter((item) => item.monthDate === monthDate);
+}
+
+function buildMobileChartSeries(
+  monthlyDataItems: MonthlyInvestmentItem[],
+  weeklyDataItems: WeeklyInvestmentItem[],
+  range: RangeKey,
+): MobileChartSeries {
+  const visibleMonths = filterDataByRange(monthlyDataItems, range);
+  const accumulatedReturnByMonth = new Map<string, number>();
+  let accumulatedFactor = 1;
+
+  monthlyDataItems.forEach((month) => {
+    accumulatedFactor *= 1 + month.returnPct / 100;
+    accumulatedReturnByMonth.set(month.date, (accumulatedFactor - 1) * 100);
+  });
+
+  const points = visibleMonths.flatMap<MobileChartPoint>((month) => {
+    const accumulatedReturnPct = accumulatedReturnByMonth.get(month.date) ?? 0;
+    const monthLabel = formatCompactSpanishMonth(month.date);
+    const weeklyItems = getWeeklyItemsForMonth(month.date, weeklyDataItems);
+    const monthStartValue = month.initialValue + month.netCashFlow;
+    let runningValue = monthStartValue;
+    const monthStartPoint: MobileChartPoint = {
+      date: month.date,
+      id: `${month.date}-start`,
+      invested: month.netCapitalContributed,
+      isMonthStart: true,
+      monthDate: month.date,
+      monthLabel,
+      monthlyReturnPct: month.returnPct,
+      accumulatedReturnPct,
+      value: monthStartValue,
+    };
+
+    if (!weeklyItems.length) {
+      return [
+        monthStartPoint,
+        {
+          date: month.date,
+          id: `${month.date}-end`,
+          invested: month.netCapitalContributed,
+          isMonthStart: false,
+          monthDate: month.date,
+          monthLabel,
+          monthlyReturnPct: month.returnPct,
+          accumulatedReturnPct,
+          value: month.finalValue,
+        },
+      ];
+    }
+
+    return [
+      monthStartPoint,
+      ...weeklyItems.map((week, weekIndex) => {
+        runningValue *= 1 + week.returnPct / 100;
+
+        return {
+          date: week.endDate,
+          id: week.id,
+          invested: month.netCapitalContributed,
+          isMonthStart: false,
+          monthDate: month.date,
+          monthLabel,
+          monthlyReturnPct: month.returnPct,
+          accumulatedReturnPct,
+          value:
+            weekIndex === weeklyItems.length - 1
+              ? month.finalValue
+              : runningValue,
+        };
+      }),
+    ];
+  });
+  const highPoint = points.reduce<MobileChartPoint | undefined>(
+    (highest, point) => (!highest || point.value > highest.value ? point : highest),
+    undefined,
+  );
+  const lowPoint = points.reduce<MobileChartPoint | undefined>(
+    (lowest, point) => (!lowest || point.value < lowest.value ? point : lowest),
+    undefined,
+  );
+  const firstMonth = visibleMonths[0];
+  const latestMonth = visibleMonths.at(-1);
+
+  return {
+    highPoint,
+    latestPoint: points.at(-1),
+    lowPoint,
+    periodLabel:
+      firstMonth && latestMonth
+        ? `${formatCompactSpanishMonth(firstMonth.date)} - ${formatCompactSpanishMonth(
+            latestMonth.date,
+          )}`
+        : "Sin datos",
+    points,
+    rangeReturnPct: getCompoundReturnPct(visibleMonths),
+  };
+}
+
+function createMobileChartGeometry(
+  points: MobileChartPoint[],
+): MobileChartGeometry | null {
+  if (points.length < 2) {
+    return null;
+  }
+
+  const width = 320;
+  const height = 176;
+  const padding = {
+    bottom: 28,
+    left: 4,
+    right: 4,
+    top: 12,
+  };
+  const values = points.flatMap((point) => [point.value, point.invested]);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const lowerBound = Math.max(0, Math.floor((minValue * 0.86) / 500) * 500);
+  const upperBound = Math.ceil((maxValue * 1.08) / 500) * 500;
+  const valueRange = Math.max(1, upperBound - lowerBound);
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const scaleX = (index: number) =>
+    padding.left + (points.length === 1 ? 0 : (plotWidth * index) / (points.length - 1));
+  const scaleY = (value: number) =>
+    padding.top + ((upperBound - value) / valueRange) * plotHeight;
+  const coordinates = points.map((point, index) => ({
+    point,
+    x: scaleX(index),
+    y: scaleY(point.value),
+  }));
+  const linePath = coordinates
+    .map(({ x, y }, index) => `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`)
+    .join(" ");
+  const first = coordinates[0];
+  const latest = coordinates.at(-1);
+  const baseline = height - padding.bottom;
+  const areaPath =
+    first && latest
+      ? `${linePath} L ${latest.x.toFixed(2)} ${baseline} L ${first.x.toFixed(
+          2,
+        )} ${baseline} Z`
+      : "";
+  const gridValues = [upperBound, (upperBound + lowerBound) / 2, lowerBound];
+  const monthStartCoordinates = coordinates.filter(({ point }) => point.isMonthStart);
+  const markerMap = new Map<
+    string,
+    { monthDate: string; point: MobileChartPoint; x: number; y: number }
+  >();
+
+  coordinates.forEach(({ point, x, y }) => {
+    markerMap.set(point.monthDate, {
+      monthDate: point.monthDate,
+      point,
+      x,
+      y,
+    });
+  });
+
+  const tickStep = Math.max(1, Math.ceil(monthStartCoordinates.length / 4));
+  const ticks = monthStartCoordinates
+    .filter(
+      (_, index) =>
+        index % tickStep === 0 || index === monthStartCoordinates.length - 1,
+    )
+    .map(({ point, x }) => ({
+      label: point.monthLabel,
+      x,
+    }));
+
+  return {
+    areaPath,
+    gridLines: gridValues.map((value) => ({
+      label: formatMobileAxisValue(value),
+      y: scaleY(value),
+    })),
+    latest: latest ? { x: latest.x, y: latest.y } : undefined,
+    linePath,
+    markers: Array.from(markerMap.values()),
+    ticks,
+  };
 }
 
 function MobileMetricCard({
@@ -321,6 +568,269 @@ function MobileInsightCard({
   );
 }
 
+function MobileInvestmentChartCard({
+  currentValue,
+  onRangeChange,
+  range,
+  series,
+  totalReturnDisplay,
+}: MobileChartCardProps) {
+  const [selectedMonthDate, setSelectedMonthDate] = useState<string | null>(null);
+  const geometry = useMemo(
+    () => createMobileChartGeometry(series.points),
+    [series.points],
+  );
+  const selectedMarker = geometry?.markers.find(
+    (marker) => marker.monthDate === selectedMonthDate,
+  );
+  const rangeTone = getKpiTone(series.rangeReturnPct);
+  const rangeStyles = mobileMetricToneStyles[rangeTone];
+
+  return (
+    <section className="relative overflow-hidden rounded-[1.65rem] border border-white/[0.09] bg-[radial-gradient(circle_at_78%_34%,rgba(34,197,94,0.2),transparent_43%),linear-gradient(135deg,#1b1e19_0%,#141713_56%,#0a160f_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_38px_rgba(0,0,0,0.3)]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.04),transparent_36%),radial-gradient(circle_at_86%_80%,rgba(16,185,129,0.13),transparent_42%)]" />
+      <div className="relative z-10">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[0.66rem] font-black uppercase tracking-[0.16em] text-muted-foreground">
+              Evolucion
+            </p>
+            <p className="mt-2 text-[2.08rem] font-black leading-none tracking-[-0.06em] text-white">
+              {currentValue}
+            </p>
+          </div>
+          <span
+            className={cn(
+              "mt-1 inline-flex shrink-0 items-center rounded-full border px-2.5 py-1.5 text-[0.62rem] font-black shadow-[0_10px_24px_rgba(16,185,129,0.12)]",
+              rangeTone === "negative"
+                ? "border-danger/25 bg-danger-soft text-danger"
+                : rangeTone === "positive"
+                  ? "border-positive/25 bg-positive-soft text-white"
+                  : "border-white/10 bg-white/8 text-white",
+            )}
+          >
+            {totalReturnDisplay}
+          </span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-4 gap-1 rounded-full border border-white/[0.08] bg-black/18 p-1">
+          {mobileChartRangeOptions.map((option) => {
+            const isSelected = range === option;
+
+            return (
+              <button
+                aria-pressed={isSelected}
+                className={cn(
+                  "h-7 rounded-full text-[0.55rem] font-black uppercase tracking-[0.08em] text-white/48",
+                  isSelected &&
+                    "bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]",
+                )}
+                key={option}
+                onClick={() => {
+                  setSelectedMonthDate(null);
+                  onRangeChange(option);
+                }}
+                type="button"
+              >
+                {option === "TODO" ? "Todo" : option}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative mt-3 h-[196px] overflow-hidden rounded-[1.15rem] bg-black/10 px-2 pb-2 pt-3">
+          {!geometry ? (
+            <div className="grid h-full place-items-center text-[0.72rem] text-muted-foreground">
+              Sin datos suficientes.
+            </div>
+          ) : (
+            <>
+              <svg
+                aria-label="Grafico de evolucion semanal de la inversion"
+                className="h-full w-full overflow-visible"
+                role="img"
+                viewBox="0 0 320 176"
+              >
+                <defs>
+                  <linearGradient id="mobile-investment-area" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#28e184" stopOpacity="0.38" />
+                    <stop offset="62%" stopColor="#28e184" stopOpacity="0.13" />
+                    <stop offset="100%" stopColor="#28e184" stopOpacity="0" />
+                  </linearGradient>
+                  <filter id="mobile-chart-glow" x="-20%" y="-60%" width="140%" height="220%">
+                    <feGaussianBlur stdDeviation="3.2" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                {geometry.gridLines.map((line) => (
+                  <g key={line.label}>
+                    <line
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeDasharray="3 7"
+                      x1="4"
+                      x2="316"
+                      y1={line.y}
+                      y2={line.y}
+                    />
+                    <text
+                      fill="rgba(255,255,255,0.38)"
+                      fontSize="8"
+                      fontWeight="700"
+                      textAnchor="end"
+                      x="315"
+                      y={line.y - 4}
+                    >
+                      {line.label}
+                    </text>
+                  </g>
+                ))}
+                <path d={geometry.areaPath} fill="url(#mobile-investment-area)" />
+                <path
+                  d={geometry.linePath}
+                  fill="none"
+                  filter="url(#mobile-chart-glow)"
+                  stroke="#28e184"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3.2"
+                />
+                {selectedMarker ? (
+                  <>
+                    <line
+                      stroke="rgba(186, 230, 253, 0.46)"
+                      strokeWidth="1"
+                      x1={selectedMarker.x}
+                      x2={selectedMarker.x}
+                      y1="12"
+                      y2="148"
+                    />
+                    <circle
+                      cx={selectedMarker.x}
+                      cy={selectedMarker.y}
+                      fill="#28e184"
+                      r="4.8"
+                      stroke="#dcfce7"
+                      strokeWidth="2"
+                    />
+                  </>
+                ) : null}
+                {geometry.latest && !selectedMarker ? (
+                  <circle
+                    cx={geometry.latest.x}
+                    cy={geometry.latest.y}
+                    fill="#28e184"
+                    r="4.2"
+                    stroke="#dcfce7"
+                    strokeWidth="2"
+                  />
+                ) : null}
+                {geometry.ticks.map((tick) => (
+                  <text
+                    fill="rgba(255,255,255,0.42)"
+                    fontSize="8"
+                    fontWeight="800"
+                    key={`${tick.label}-${tick.x}`}
+                    textAnchor="middle"
+                    x={tick.x}
+                    y="168"
+                  >
+                    {tick.label}
+                  </text>
+                ))}
+              </svg>
+              {geometry.markers.map((marker) => (
+                <button
+                  aria-label={`Ver detalle de ${marker.point.monthLabel}`}
+                  className="absolute bottom-7 top-3 z-20 w-8 -translate-x-1/2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-positive/50"
+                  key={marker.monthDate}
+                  onClick={() => setSelectedMonthDate(marker.monthDate)}
+                  style={{ left: `${(marker.x / 320) * 100}%` }}
+                  type="button"
+                />
+              ))}
+              {selectedMarker ? (
+                <div
+                  className="pointer-events-none absolute top-7 z-30 w-[15rem] rounded-[0.85rem] border border-white/12 bg-[#0b1720]/95 px-3 py-3 text-[0.68rem] shadow-[0_18px_42px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                  style={
+                    selectedMarker.x < 164
+                      ? { left: "0.9rem" }
+                      : { right: "0.9rem" }
+                  }
+                >
+                  <p className="font-black text-card-foreground">
+                    {formatFullDate(selectedMarker.point.monthDate)}
+                  </p>
+                  <div className="mt-2.5 grid gap-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-card-foreground/62">Valor</span>
+                      <span className="font-black text-positive">
+                        {formatWholeCurrency(selectedMarker.point.value)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-card-foreground/62">
+                        Capital neto aportado
+                      </span>
+                      <span className="font-black text-card-foreground">
+                        {formatWholeCurrency(selectedMarker.point.invested)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-card-foreground/62">
+                        Rentabilidad mensual
+                      </span>
+                      <span
+                        className={cn(
+                          "font-black",
+                          mobileMetricToneStyles[
+                            getKpiTone(selectedMarker.point.monthlyReturnPct)
+                          ].value,
+                        )}
+                      >
+                        {formatPercent(selectedMarker.point.monthlyReturnPct, {
+                          sign: true,
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-card-foreground/62">
+                        Rentabilidad acumulada
+                      </span>
+                      <span
+                        className={cn(
+                          "font-black",
+                          mobileMetricToneStyles[
+                            getKpiTone(selectedMarker.point.accumulatedReturnPct)
+                          ].value,
+                        )}
+                      >
+                        {formatPercent(
+                          selectedMarker.point.accumulatedReturnPct,
+                          { sign: true },
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+
+        <div className="mt-2 flex items-center justify-between gap-3 text-[0.58rem] font-semibold text-muted-foreground">
+          <span>{series.periodLabel}</span>
+          <span className={rangeStyles.value}>
+            {formatPercent(series.rangeReturnPct, { sign: true })}
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function InvestmentDashboard({
   dashboardData,
   investorName,
@@ -351,6 +861,8 @@ export function InvestmentDashboard({
   const [activeMobileTab, setActiveMobileTab] =
     useState<MobileInvestorTab>("summary");
   const [activeMobileInfo, setActiveMobileInfo] = useState<string | null>(null);
+  const [mobileChartRange, setMobileChartRange] =
+    useState<RangeKey>("TODO");
   const returnTone = getKpiTone(investmentSummary.totalReturnPct);
   const profitTone = getKpiTone(investmentSummary.totalProfit);
   const annualizedTone = getKpiTone(investmentSummary.annualizedReturnPct);
@@ -530,6 +1042,15 @@ export function InvestmentDashboard({
       }),
     },
   ];
+  const mobileChartSeries = useMemo(
+    () =>
+      buildMobileChartSeries(
+        data.monthlyData,
+        data.weeklyData,
+        mobileChartRange,
+      ),
+    [data.monthlyData, data.weeklyData, mobileChartRange],
+  );
 
   useEffect(() => {
     if (loginStatus !== "success" || requiresPasswordChange) {
@@ -801,6 +1322,26 @@ export function InvestmentDashboard({
     );
   }
 
+  function renderMobileChart() {
+    return (
+      <div className="h-full pb-8">
+        <div className="mb-3">
+          <h1 className="text-[2rem] font-black leading-none tracking-[-0.055em] text-white">
+            Grafico
+          </h1>
+        </div>
+
+        <MobileInvestmentChartCard
+          currentValue={formatWholeCurrency(investmentSummary.currentValue)}
+          onRangeChange={setMobileChartRange}
+          range={mobileChartRange}
+          series={mobileChartSeries}
+          totalReturnDisplay={`${totalReturnDisplay} total`}
+        />
+      </div>
+    );
+  }
+
   function renderMobileEmptyTab() {
     const activeTab = mobileInvestorTabs.find(
       (tab) => tab.id === activeMobileTab,
@@ -839,6 +1380,8 @@ export function InvestmentDashboard({
           <section className="no-scrollbar min-h-0 flex-1 overflow-y-auto pb-3">
             {activeMobileTab === "summary"
               ? renderMobileSummary()
+              : activeMobileTab === "chart"
+                ? renderMobileChart()
               : activeMobileTab === "insights"
                 ? renderMobileInsights()
               : renderMobileEmptyTab()}
