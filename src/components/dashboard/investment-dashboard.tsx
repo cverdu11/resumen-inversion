@@ -595,7 +595,7 @@ function MobileInvestmentChartCard({
             <p className="text-[0.66rem] font-black uppercase tracking-[0.16em] text-muted-foreground">
               Evolucion
             </p>
-            <p className="mt-2 text-[2.28rem] font-black leading-none tracking-[-0.06em] text-white">
+            <p className="mt-3 text-[2.28rem] font-black leading-none tracking-[-0.06em] text-white">
               {currentValue}
             </p>
           </div>
