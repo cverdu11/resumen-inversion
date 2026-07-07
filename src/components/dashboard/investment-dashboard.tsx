@@ -30,12 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   capitalMovements as defaultCapitalMovements,
   dataUpdatedAt as defaultDataUpdatedAt,
@@ -154,7 +149,9 @@ type MobileMetricCardProps = {
   explanation?: string;
   helper: string;
   icon: LucideIcon;
+  isInfoOpen?: boolean;
   label: string;
+  onInfoToggle?: () => void;
   tone: MobileMetricTone;
   value: string;
 };
@@ -221,32 +218,44 @@ function MobileMetricCard({
   explanation,
   helper,
   icon: Icon,
+  isInfoOpen = false,
   label,
+  onInfoToggle,
   tone,
   value,
 }: MobileMetricCardProps) {
   const styles = mobileMetricToneStyles[tone];
+  const infoId = `mobile-info-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
   return (
     <article className="relative flex min-h-[122px] flex-col justify-between rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(31,34,29,0.96),rgba(18,21,18,0.96))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_26px_rgba(0,0,0,0.26)]">
       {explanation ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              aria-label={`Explicar ${label}`}
-              className="absolute right-3 top-3 grid size-6 place-items-center rounded-full text-muted-foreground/72 hover:bg-white/8 hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
-              type="button"
+        <>
+          <button
+            aria-controls={infoId}
+            aria-expanded={isInfoOpen}
+            aria-label={`Explicar ${label}`}
+            className="absolute right-3 top-3 z-20 grid size-6 place-items-center rounded-full text-muted-foreground/72 hover:bg-white/8 hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+            onClick={onInfoToggle}
+            type="button"
+          >
+            <Info className="size-3.5" strokeWidth={2} />
+          </button>
+          {isInfoOpen ? (
+            <div
+              className="absolute right-3 top-10 z-30 w-[min(13.25rem,calc(100vw-3rem))] rounded-[0.9rem] border border-white/12 bg-[#111812] px-3 py-2.5 text-left shadow-[0_18px_42px_rgba(0,0,0,0.46)]"
+              id={infoId}
+              role="note"
             >
-              <Info className="size-3.5" strokeWidth={2} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent align="end" className="max-w-[250px]" side="top">
-            <p className="font-semibold text-popover-foreground">{label}</p>
-            <p className="mt-1 leading-4 text-popover-foreground/84">
-              {explanation}
-            </p>
-          </TooltipContent>
-        </Tooltip>
+              <p className="text-[0.72rem] font-bold leading-4 text-card-foreground">
+                {label}
+              </p>
+              <p className="mt-1 text-[0.66rem] leading-4 text-card-foreground/78">
+                {explanation}
+              </p>
+            </div>
+          ) : null}
+        </>
       ) : null}
       <Icon
         className={cn(
@@ -336,6 +345,7 @@ export function InvestmentDashboard({
   );
   const [activeMobileTab, setActiveMobileTab] =
     useState<MobileInvestorTab>("summary");
+  const [activeMobileInfo, setActiveMobileInfo] = useState<string | null>(null);
   const returnTone = getKpiTone(investmentSummary.totalReturnPct);
   const profitTone = getKpiTone(investmentSummary.totalProfit);
   const annualizedTone = getKpiTone(investmentSummary.annualizedReturnPct);
@@ -746,7 +756,16 @@ export function InvestmentDashboard({
         <TooltipProvider delayDuration={120}>
           <section className="mt-3.5 grid grid-cols-2 gap-3">
             {mobileSummaryCards.map((card) => (
-              <MobileMetricCard key={card.label} {...card} />
+              <MobileMetricCard
+                isInfoOpen={activeMobileInfo === card.label}
+                key={card.label}
+                onInfoToggle={() =>
+                  setActiveMobileInfo((currentLabel) =>
+                    currentLabel === card.label ? null : card.label,
+                  )
+                }
+                {...card}
+              />
             ))}
           </section>
         </TooltipProvider>
@@ -793,7 +812,7 @@ export function InvestmentDashboard({
     return (
       <main className="dashboard-grid relative flex h-[100dvh] min-h-[100svh] overflow-hidden bg-[#030507] text-white lg:hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_76%_17%,rgba(30,64,91,0.32),transparent_34%),linear-gradient(180deg,#050707_0%,#020407_100%)]" />
-        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+4.85rem)] pt-5">
+        <div className="relative z-10 flex h-full w-full flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+4.25rem)] pt-5">
           <header className="relative mb-2 min-h-10">
             {renderAccountMenu("mobile")}
             {showLoginToast ? (
@@ -818,7 +837,7 @@ export function InvestmentDashboard({
 
         <nav
           aria-label="Navegacion del panel inversor"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-30 flex h-[4.55rem] w-[calc(100vw-1rem)] max-w-[24.4rem] -translate-x-1/2 items-stretch gap-0.5 overflow-hidden rounded-[2.55rem] border border-white/[0.12] bg-[rgba(14,14,13,0.74)] p-1.5 shadow-[0_-14px_40px_rgba(0,0,0,0.48),0_0_0_1px_rgba(255,255,255,0.035),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.58)] backdrop-blur-2xl"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.65rem)] left-1/2 z-30 flex h-[3.87rem] w-[85vw] max-w-[20.75rem] -translate-x-1/2 items-stretch gap-[0.1rem] overflow-hidden rounded-[2.15rem] border border-white/[0.12] bg-[rgba(14,14,13,0.74)] p-[0.32rem] shadow-[0_-12px_34px_rgba(0,0,0,0.48),0_0_0_1px_rgba(255,255,255,0.035),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.58)] backdrop-blur-2xl"
         >
           {mobileInvestorTabs.map((tab) => {
             const Icon = tab.icon;
@@ -830,21 +849,24 @@ export function InvestmentDashboard({
                 type="button"
                 aria-pressed={isActive}
                 className={cn(
-                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[0.08rem] rounded-[2.15rem] px-1 text-[0.68rem] font-semibold leading-none text-white/74",
+                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[0.07rem] rounded-[1.85rem] px-[0.2rem] text-[0.58rem] font-semibold leading-none text-white/74",
                   isActive
-                    ? "z-10 bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_12px_24px_rgba(0,0,0,0.32)]"
+                    ? "z-10 bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_10px_20px_rgba(0,0,0,0.32)]"
                     : "hover:bg-white/8 hover:text-white",
                 )}
-                onClick={() => setActiveMobileTab(tab.id)}
+                onClick={() => {
+                  setActiveMobileInfo(null);
+                  setActiveMobileTab(tab.id);
+                }}
               >
                 <Icon
                   className={cn(
-                    "size-[1.42rem] translate-y-[3px]",
+                    "size-[1.2rem] translate-y-[2.5px]",
                     isActive ? "text-white" : "text-white/86",
                   )}
                   strokeWidth={2.5}
                 />
-                <span className="-translate-y-[2px] truncate">{tab.label}</span>
+                <span className="-translate-y-[1.7px] truncate">{tab.label}</span>
               </button>
             );
           })}
