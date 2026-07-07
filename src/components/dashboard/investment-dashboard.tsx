@@ -149,6 +149,7 @@ type MobileMetricCardProps = {
   explanation?: string;
   helper: string;
   icon: LucideIcon;
+  infoSide?: "left" | "right";
   isInfoOpen?: boolean;
   label: string;
   onInfoToggle?: () => void;
@@ -218,6 +219,7 @@ function MobileMetricCard({
   explanation,
   helper,
   icon: Icon,
+  infoSide = "right",
   isInfoOpen = false,
   label,
   onInfoToggle,
@@ -243,7 +245,10 @@ function MobileMetricCard({
           </button>
           {isInfoOpen ? (
             <div
-              className="absolute right-3 top-10 z-30 w-[min(13.25rem,calc(100vw-3rem))] rounded-[0.9rem] border border-white/12 bg-[#111812] px-3 py-2.5 text-left shadow-[0_18px_42px_rgba(0,0,0,0.46)]"
+              className={cn(
+                "absolute top-10 z-30 w-[min(14rem,calc(100vw-2.5rem))] rounded-[0.9rem] border border-white/12 bg-[#111812] px-3 py-2.5 text-left shadow-[0_18px_42px_rgba(0,0,0,0.46)]",
+                infoSide === "left" ? "left-3" : "right-3",
+              )}
               id={infoId}
               role="note"
             >
@@ -757,6 +762,11 @@ export function InvestmentDashboard({
           <section className="mt-3.5 grid grid-cols-2 gap-3">
             {mobileSummaryCards.map((card) => (
               <MobileMetricCard
+                infoSide={
+                  card.label === "Capital neto" || card.label === "Anualizada"
+                    ? "left"
+                    : "right"
+                }
                 isInfoOpen={activeMobileInfo === card.label}
                 key={card.label}
                 onInfoToggle={() =>
@@ -849,7 +859,7 @@ export function InvestmentDashboard({
                 type="button"
                 aria-pressed={isActive}
                 className={cn(
-                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[0.07rem] rounded-[1.85rem] px-[0.2rem] text-[0.58rem] font-semibold leading-none text-white/74",
+                  "relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[0.07rem] rounded-[1.85rem] px-[0.2rem] text-white/74",
                   isActive
                     ? "z-10 bg-[linear-gradient(180deg,rgba(104,104,100,0.54),rgba(57,57,54,0.4))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.32),0_10px_20px_rgba(0,0,0,0.32)]"
                     : "hover:bg-white/8 hover:text-white",
@@ -866,7 +876,9 @@ export function InvestmentDashboard({
                   )}
                   strokeWidth={2.5}
                 />
-                <span className="-translate-y-[1.7px] truncate">{tab.label}</span>
+                <span className="-translate-y-[1.7px] truncate text-[0.50rem] font-semibold leading-none">
+                  {tab.label}
+                </span>
               </button>
             );
           })}
