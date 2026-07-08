@@ -45,12 +45,14 @@ export function PasswordChangeForm({
   passwordAction = changeAdminPassword,
   passwordError,
   passwordStatus,
+  summaryLabel = "Cambiar contrase¤a",
 }: {
   forceChange?: boolean;
   next: string;
   passwordAction?: PasswordChangeAction;
   passwordError?: string;
   passwordStatus?: string;
+  summaryLabel?: string;
 }) {
   const errorMessage = getPasswordErrorMessage(passwordError);
   const successMessage =
@@ -73,7 +75,7 @@ export function PasswordChangeForm({
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-muted-foreground">
             <KeyRound className="size-4" strokeWidth={1.9} />
           </span>
-          Cambiar contraseña
+          {summaryLabel}
         </span>
         <ChevronDown
           className="size-4 shrink-0 text-muted-foreground transition-transform group-open/password:rotate-180"

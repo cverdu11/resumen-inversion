@@ -16,6 +16,7 @@ import {
   Trophy,
   TrendingDown,
   TrendingUp,
+  UserRound,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -1092,6 +1093,9 @@ export function InvestmentDashboard({
   const [showLoginToast, setShowLoginToast] = useState(
     loginStatus === "success" && !requiresPasswordChange,
   );
+  const [isMobileAccountMenuOpen, setIsMobileAccountMenuOpen] = useState(
+    Boolean(requiresPasswordChange || passwordError || passwordStatus),
+  );
   const [activeMobileTab, setActiveMobileTab] =
     useState<MobileInvestorTab>("summary");
   const [activeMobileInfo, setActiveMobileInfo] = useState<string | null>(null);
@@ -1340,6 +1344,114 @@ export function InvestmentDashboard({
     }
 
     const isMobile = variant === "mobile";
+
+    if (isMobile) {
+      return (
+        <>
+          <button
+            aria-expanded={isMobileAccountMenuOpen}
+            aria-label="Abrir ajustes de cuenta"
+            className="flex cursor-pointer list-none items-center gap-3 rounded-full pr-3 text-left"
+            onClick={() => setIsMobileAccountMenuOpen(true)}
+            type="button"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary ring-1 ring-primary/25">
+              {investorInitials}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block max-w-[178px] truncate text-[0.9rem] font-semibold text-card-foreground">
+                {displayInvestorName}
+              </span>
+              <span className="mt-0.5 block text-[0.55rem] font-black uppercase tracking-[0.26em] text-muted-foreground">
+                Oro Negro
+              </span>
+            </span>
+          </button>
+
+          {isMobileAccountMenuOpen ? (
+            <div
+              aria-labelledby="mobile-account-settings-title"
+              aria-modal="true"
+              className="fixed inset-0 z-50 bg-black/62 px-3 py-[calc(env(safe-area-inset-top)+0.9rem)] backdrop-blur-xl"
+              role="dialog"
+            >
+              {requiresPasswordChange ? null : (
+                <button
+                  aria-label="Cerrar panel de ajustes"
+                  className="absolute inset-0 cursor-default"
+                  onClick={() => setIsMobileAccountMenuOpen(false)}
+                  type="button"
+                />
+              )}
+              <div className="no-scrollbar relative mx-auto flex h-full max-w-[28rem] flex-col overflow-y-auto rounded-[2rem] border border-white/[0.08] bg-[#0b0c0b] px-5 pb-5 pt-4 shadow-[0_28px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="mb-7 grid grid-cols-[3rem_1fr_3rem] items-center">
+                  {requiresPasswordChange ? (
+                    <span />
+                  ) : (
+                    <button
+                      aria-label="Cerrar ajustes"
+                      className="grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.055] text-card-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                      onClick={() => setIsMobileAccountMenuOpen(false)}
+                      type="button"
+                    >
+                      <X className="size-5" strokeWidth={2.3} />
+                    </button>
+                  )}
+                  <h2
+                    className="text-center text-[0.68rem] font-black uppercase tracking-[0.34em] text-card-foreground"
+                    id="mobile-account-settings-title"
+                  >
+                    Ajustes
+                  </h2>
+                  <span />
+                </div>
+
+                <div className="overflow-hidden rounded-[1.55rem] border border-white/[0.08] bg-[rgba(42,40,35,0.88)] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="flex min-h-16 items-center gap-3 rounded-[1.1rem] px-3 py-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/12 text-primary">
+                      <UserRound className="size-4" strokeWidth={2} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-card-foreground">
+                        Perfil
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {displayInvestorName} · {investorEmail}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="my-1 h-px bg-white/[0.08]" />
+
+                  <PasswordChangeForm
+                    forceChange={requiresPasswordChange}
+                    next="/inversor"
+                    passwordAction={changeInvestorPassword}
+                    passwordError={passwordError}
+                    passwordStatus={passwordStatus}
+                    summaryLabel="Cuenta y seguridad"
+                  />
+
+                  <div className="my-1 h-px bg-white/[0.08]" />
+
+                  <form action="/auth/signout" method="post">
+                    <button
+                      className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-medium text-card-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
+                      type="submit"
+                    >
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-muted-foreground">
+                        <LogOut className="size-4" strokeWidth={1.9} />
+                      </span>
+                      Cerrar sesion
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </>
+      );
+    }
 
     return (
       <details
@@ -1694,7 +1806,10 @@ export function InvestmentDashboard({
 
         <nav
           aria-label="Navegacion del panel inversor"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.65rem)] left-1/2 z-30 flex h-[3.87rem] w-[85vw] max-w-[20.75rem] -translate-x-1/2 items-stretch gap-[0.1rem] overflow-hidden rounded-[2.15rem] border border-white/[0.12] bg-[rgba(14,14,13,0.74)] p-[0.32rem] shadow-[0_-12px_34px_rgba(0,0,0,0.48),0_0_0_1px_rgba(255,255,255,0.035),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.58)] backdrop-blur-2xl"
+          className={cn(
+            "fixed bottom-[calc(env(safe-area-inset-bottom)+0.65rem)] left-1/2 z-30 flex h-[3.87rem] w-[85vw] max-w-[20.75rem] -translate-x-1/2 items-stretch gap-[0.1rem] overflow-hidden rounded-[2.15rem] border border-white/[0.12] bg-[rgba(14,14,13,0.74)] p-[0.32rem] shadow-[0_-12px_34px_rgba(0,0,0,0.48),0_0_0_1px_rgba(255,255,255,0.035),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.58)] backdrop-blur-2xl",
+            isMobileAccountMenuOpen && "pointer-events-none opacity-0",
+          )}
         >
           {mobileInvestorTabs.map((tab) => {
             const Icon = tab.icon;
