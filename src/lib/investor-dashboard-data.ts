@@ -34,6 +34,13 @@ const dashboardDateFormatter = new Intl.DateTimeFormat("es-ES", {
   year: "numeric",
 });
 
+const madridDateFormatter = new Intl.DateTimeFormat("en", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: "Europe/Madrid",
+  year: "numeric",
+});
+
 function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -54,11 +61,26 @@ function getNextMonthStart(monthKey: string) {
 }
 
 function getDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
+  const parts = madridDateFormatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
 
   return `${year}-${month}-${day}`;
+}
+
+export function getCurrentInvestorWeekRange(referenceDate = new Date()) {
+  const currentDate = new Date(`${getDateKey(referenceDate)}T12:00:00`);
+  const isoDay = currentDate.getDay() || 7;
+  const start = new Date(currentDate);
+  start.setDate(start.getDate() - isoDay + 1);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 4);
+
+  return {
+    endDate: getDateKey(end),
+    startDate: getDateKey(start),
+  };
 }
 
 function getMovementEffect(movement: InvestorDashboardMovementRow) {
@@ -113,7 +135,9 @@ function getDashboardUpdatedAt(
   movements: InvestorDashboardMovementRow[],
   weeks: InvestorDashboardWeeklyRow[],
 ) {
-  const latestWeek = weeks.at(-1)?.week_end;
+  const latestWeek = weeks
+    .filter((week) => week.status === "closed")
+    .at(-1)?.week_end;
   const latestMovement = movements.at(-1)?.movement_date;
   const latestDate = [latestWeek, latestMovement]
     .filter(Boolean)
@@ -183,6 +207,12 @@ function buildMonthlyData(
 
   for (const week of orderedWeeks) {
     monthIds.add(getMonthKey(week.week_end));
+  }
+
+  for (const week of weeks) {
+    if (week.week_end >= investor.start_date) {
+      monthIds.add(getMonthKey(week.week_end));
+    }
   }
 
   const monthKeys = [...monthIds].sort();
@@ -273,23 +303,48 @@ function buildMonthlyData(
 export function buildInvestorDashboardData({
   investor,
   movements,
+  referenceDate = new Date(),
   weeklyRows,
 }: {
   investor: InvestorDashboardInvestorRow;
   movements: InvestorDashboardMovementRow[];
+  referenceDate?: Date;
   weeklyRows: InvestorDashboardWeeklyRow[];
 }) {
-  const capitalMovements = mapCapitalMovements(movements);
-  const monthlyData = buildMonthlyData(investor, movements, weeklyRows);
-  const weeklyData = mapWeeklyData(
-    weeklyRows.filter(
-      (week) => week.status === "closed" && week.week_end >= investor.start_date,
-    ),
+  const currentWeekRange = getCurrentInvestorWeekRange(referenceDate);
+  const closedWeeks = weeklyRows.filter(
+    (week) =>
+      week.status === "closed" && week.week_end >= investor.start_date,
   );
+  const savedCurrentWeek = weeklyRows.find(
+    (week) => week.week_start === currentWeekRange.startDate,
+  );
+  const visibleWeeks = [...closedWeeks];
+
+  if (
+    savedCurrentWeek?.status !== "closed" &&
+    currentWeekRange.endDate >= investor.start_date
+  ) {
+    visibleWeeks.push({
+      id: savedCurrentWeek?.id ?? -1,
+      return_pct: 0,
+      status: savedCurrentWeek?.status ?? "draft",
+      week_end: savedCurrentWeek?.week_end ?? currentWeekRange.endDate,
+      week_start: currentWeekRange.startDate,
+    });
+  }
+
+  visibleWeeks.sort((left, right) =>
+    left.week_start.localeCompare(right.week_start),
+  );
+
+  const capitalMovements = mapCapitalMovements(movements);
+  const monthlyData = buildMonthlyData(investor, movements, visibleWeeks);
+  const weeklyData = mapWeeklyData(visibleWeeks);
   const annualizedEndDate = getAnnualizedEndDate({
     investor,
     movements,
-    weeks: weeklyRows,
+    weeks: visibleWeeks,
   });
   const annualizedBasisYears = getAnnualizedBasisYears(
     investor.start_date,
@@ -298,7 +353,7 @@ export function buildInvestorDashboardData({
 
   return {
     capitalMovements,
-    dataUpdatedAt: getDashboardUpdatedAt(movements, weeklyRows),
+    dataUpdatedAt: getDashboardUpdatedAt(movements, visibleWeeks),
     monthlyData,
     summary: deriveInvestmentSummary(
       monthlyData,
