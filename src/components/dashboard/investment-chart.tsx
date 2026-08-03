@@ -252,14 +252,7 @@ function getTickKeys(data: ChartDatum[]) {
   const monthlyPoints = data.filter((item) => !item.isOpeningPoint);
 
   if (monthlyPoints.length <= 8) {
-    const keys = monthlyPoints.map((item) => item.chartKey);
-    const openingPoint = data.find((item) => item.isOpeningPoint);
-
-    if (openingPoint && keys.length) {
-      keys[0] = openingPoint.chartKey;
-    }
-
-    return keys;
+    return monthlyPoints.map((item) => item.chartKey);
   }
 
   const step = 2;
@@ -267,11 +260,6 @@ function getTickKeys(data: ChartDatum[]) {
     .filter((_, index) => index % step === 0)
     .map((item) => item.chartKey);
   const latest = monthlyPoints.at(-1)?.chartKey;
-  const openingPoint = data.find((item) => item.isOpeningPoint);
-
-  if (openingPoint && ticks.length) {
-    ticks[0] = openingPoint.chartKey;
-  }
 
   if (latest && !ticks.includes(latest)) {
     ticks.push(latest);
