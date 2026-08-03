@@ -36,18 +36,24 @@ import {
   formatAxisMonth,
   formatCompactCurrency,
   formatCurrency,
-  formatFullDate,
+  formatMonthOnly,
   formatPercent,
   valueTone,
 } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 type ChartDatum = MonthlyInvestmentItem & {
+  chartKey: string;
   invested: number;
+  isOpeningPoint?: boolean;
   value: number;
   accumulatedReturnPct: number;
   periodReturnPct: number;
 };
+
+const chartRangeOptions = rangeOptions.filter(
+  (option) => option !== "1M" && option !== "YTD",
+);
 
 type ChartTooltipProps = {
   active?: boolean;
@@ -179,7 +185,7 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
   return (
     <div className="min-w-64 rounded-lg border bg-popover/95 p-4 text-sm shadow-2xl backdrop-blur">
       <p className="font-semibold text-popover-foreground">
-        {formatFullDate(datum.date)}
+        {formatMonthOnly(datum.date)}
       </p>
       <div className="mt-3 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-6">
@@ -242,16 +248,30 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
   );
 }
 
-function getTickDates(data: ChartDatum[]) {
-  if (data.length <= 8) {
-    return data.map((item) => item.date);
+function getTickKeys(data: ChartDatum[]) {
+  const monthlyPoints = data.filter((item) => !item.isOpeningPoint);
+
+  if (monthlyPoints.length <= 8) {
+    const keys = monthlyPoints.map((item) => item.chartKey);
+    const openingPoint = data.find((item) => item.isOpeningPoint);
+
+    if (openingPoint && keys.length) {
+      keys[0] = openingPoint.chartKey;
+    }
+
+    return keys;
   }
 
-  const step = data.length > 18 ? 2 : 2;
-  const ticks = data
+  const step = 2;
+  const ticks = monthlyPoints
     .filter((_, index) => index % step === 0)
-    .map((item) => item.date);
-  const latest = data.at(-1)?.date;
+    .map((item) => item.chartKey);
+  const latest = monthlyPoints.at(-1)?.chartKey;
+  const openingPoint = data.find((item) => item.isOpeningPoint);
+
+  if (openingPoint && ticks.length) {
+    ticks[0] = openingPoint.chartKey;
+  }
 
   if (latest && !ticks.includes(latest)) {
     ticks.push(latest);
@@ -305,9 +325,8 @@ export function InvestmentChartCard({
     () => getChartStartValue(visibleData),
     [visibleData],
   );
-  const chartData = useMemo<ChartDatum[]>(
-    () =>
-      visibleData.reduce<ChartDatum[]>((items, item) => {
+  const chartData = useMemo<ChartDatum[]>(() => {
+    const monthlyPoints = visibleData.reduce<ChartDatum[]>((items, item) => {
         const previousReturnPct = items.at(-1)?.periodReturnPct ?? 0;
         const previousFactor = 1 + previousReturnPct / 100;
         const periodFactor = previousFactor * (1 + item.returnPct / 100);
@@ -316,15 +335,41 @@ export function InvestmentChartCard({
           ...items,
           {
             ...item,
+            chartKey: item.date,
             invested: item.netCapitalContributed,
             value: item.finalValue,
             accumulatedReturnPct: (periodFactor - 1) * 100,
             periodReturnPct: (periodFactor - 1) * 100,
           },
         ];
-      }, []),
-    [visibleData],
-  );
+      }, []);
+    const firstPoint = monthlyPoints[0];
+
+    if (!firstPoint) {
+      return [];
+    }
+
+    const openingValue =
+      firstPoint.initialValue + firstPoint.netCashFlow || periodStartValue;
+
+    return [
+      {
+        ...firstPoint,
+        chartKey: `${firstPoint.date}-opening`,
+        contributions: 0,
+        finalValue: openingValue,
+        gain: 0,
+        isOpeningPoint: true,
+        netCashFlow: 0,
+        returnPct: 0,
+        value: openingValue,
+        accumulatedReturnPct: 0,
+        periodReturnPct: 0,
+        withdrawals: 0,
+      },
+      ...monthlyPoints,
+    ];
+  }, [periodStartValue, visibleData]);
   const yDomain = useMemo<[number, number]>(() => {
     if (!chartData.length) {
       return [0, 100];
@@ -352,7 +397,11 @@ export function InvestmentChartCard({
       Math.ceil((max + upperPadding) / 1000) * 1000,
     ];
   }, [chartData, periodStartValue]);
-  const ticks = useMemo(() => getTickDates(chartData), [chartData]);
+  const ticks = useMemo(() => getTickKeys(chartData), [chartData]);
+  const tickDates = useMemo(
+    () => new Map(chartData.map((item) => [item.chartKey, item.date])),
+    [chartData],
+  );
   const chartMargin = useMemo(
     () =>
       isCompactChart
@@ -396,7 +445,7 @@ export function InvestmentChartCard({
             }}
             aria-label="Seleccionar rango de fechas"
           >
-            {rangeOptions.map((option) => (
+            {chartRangeOptions.map((option) => (
               <ToggleGroupItem
                 key={option}
                 value={option}
@@ -453,9 +502,11 @@ export function InvestmentChartCard({
                   vertical={false}
                 />
                 <XAxis
-                  dataKey="date"
+                  dataKey="chartKey"
                   ticks={ticks}
-                  tickFormatter={formatAxisMonth}
+                  tickFormatter={(chartKey) =>
+                    formatAxisMonth(tickDates.get(String(chartKey)) ?? String(chartKey))
+                  }
                   tickLine={false}
                   axisLine={{ stroke: "rgba(148, 163, 184, 0.34)" }}
                   tickMargin={12}
@@ -486,14 +537,20 @@ export function InvestmentChartCard({
                   isAnimationActive={false}
                 />
                 {chartData
-                  .filter((item) => item.netCashFlow !== 0)
+                  .filter(
+                    (item) => !item.isOpeningPoint && item.netCashFlow !== 0,
+                  )
                   .map((item) => {
                     const isContribution = item.netCashFlow > 0;
+                    const isFirstMonth = item.chartKey === chartData[1]?.chartKey;
+                    const x = isFirstMonth
+                      ? chartData[0]?.chartKey ?? item.chartKey
+                      : item.chartKey;
 
                     return (
                       <ReferenceDot
                         key={`cash-flow-${item.date}`}
-                        x={item.date}
+                        x={x}
                         y={item.netCapitalContributed}
                         r={isCompactChart ? 4 : 5}
                         fill={isContribution ? "#28e184" : "#ff5d5d"}
@@ -519,7 +576,7 @@ export function InvestmentChartCard({
                 />
                 {latestDatum ? (
                   <ReferenceDot
-                    x={latestDatum.date}
+                    x={latestDatum.chartKey}
                     y={latestDatum.finalValue}
                     r={isCompactChart ? 4 : 5}
                     fill={valueStroke}

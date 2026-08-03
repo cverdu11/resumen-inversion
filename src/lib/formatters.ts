@@ -63,6 +63,10 @@ const monthFormatter = new Intl.DateTimeFormat("es-ES", {
   year: "numeric",
 });
 
+const monthNameFormatter = new Intl.DateTimeFormat("es-ES", {
+  month: "long",
+});
+
 const axisMonthFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "2-digit",
@@ -132,6 +136,11 @@ export function formatWholePercent(value: number, options?: { sign?: boolean }) 
 
 export function formatMonthName(date: string) {
   const formatted = monthFormatter.format(parseDate(date));
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+export function formatMonthOnly(date: string) {
+  const formatted = monthNameFormatter.format(parseDate(date));
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 

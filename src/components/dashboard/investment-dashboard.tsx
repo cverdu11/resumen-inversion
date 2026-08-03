@@ -51,7 +51,7 @@ import {
 } from "@/lib/investment-data";
 import {
   formatCompactSpanishMonth,
-  formatFullDate,
+  formatMonthOnly,
   formatPercent,
   formatShortDate,
   formatWholeCurrency,
@@ -484,7 +484,6 @@ function createMobileChartGeometry(
         )} ${baseline} Z`
       : "";
   const gridValues = [upperBound, (upperBound + lowerBound) / 2, lowerBound];
-  const monthStartCoordinates = coordinates.filter(({ point }) => point.isMonthStart);
   const markerMap = new Map<
     string,
     { monthDate: string; point: MobileChartPoint; x: number; y: number }
@@ -499,16 +498,17 @@ function createMobileChartGeometry(
     });
   });
 
-  const tickStep = Math.max(1, Math.ceil(monthStartCoordinates.length / 4));
-  const ticks = monthStartCoordinates
-    .filter(
-      (_, index) =>
-        index % tickStep === 0 || index === monthStartCoordinates.length - 1,
-    )
-    .map(({ point, x }) => ({
-      label: point.monthLabel,
-      x,
-    }));
+  const markers = Array.from(markerMap.values());
+  const tickIndexes =
+    markers.length <= 4
+      ? markers.map((_, index) => index)
+      : Array.from({ length: 4 }, (_, index) =>
+          Math.round((index * (markers.length - 1)) / 3),
+        );
+  const ticks = tickIndexes.map((index) => ({
+    label: markers[index].point.monthLabel,
+    x: markers[index].x,
+  }));
 
   return {
     areaPath,
@@ -518,7 +518,7 @@ function createMobileChartGeometry(
     })),
     latest: latest ? { x: latest.x, y: latest.y } : undefined,
     linePath,
-    markers: Array.from(markerMap.values()),
+    markers,
     ticks,
   };
 }
@@ -815,7 +815,7 @@ function MobileInvestmentChartCard({
           </span>
         </div>
 
-        <div className="mt-3 grid grid-cols-4 gap-1 rounded-full border border-white/[0.08] bg-black/18 p-1">
+        <div className="mx-2 mt-3 grid grid-cols-4 gap-0.5 rounded-full border border-white/[0.08] bg-black/18 p-0.5">
           {mobileChartRangeOptions.map((option) => {
             const isSelected = range === option;
 
@@ -823,7 +823,7 @@ function MobileInvestmentChartCard({
               <button
                 aria-pressed={isSelected}
                 className={cn(
-                  "h-7 rounded-full text-[0.55rem] font-black uppercase tracking-[0.08em] text-white/48",
+                  "h-6 rounded-full text-[0.52rem] font-black uppercase tracking-[0.07em] text-white/48",
                   isSelected &&
                     "bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]",
                 )}
@@ -881,8 +881,8 @@ function MobileInvestmentChartCard({
                       fill="rgba(255,255,255,0.38)"
                       fontSize="8"
                       fontWeight="700"
-                      textAnchor="end"
-                      x="304"
+                      textAnchor="start"
+                      x="18"
                       y={line.y - 4}
                     >
                       {line.label}
@@ -996,7 +996,7 @@ function MobileInvestmentChartCard({
                     <X className="size-3.5" strokeWidth={2.2} />
                   </button>
                   <p className="pr-8 font-black text-card-foreground">
-                    {formatFullDate(selectedMarker.point.monthDate)}
+                    {formatMonthOnly(selectedMarker.point.monthDate)}
                   </p>
                   <div className="mt-2.5 grid gap-1.5">
                     <div className="flex items-center justify-between gap-3">
