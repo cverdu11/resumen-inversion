@@ -48,7 +48,7 @@ const partialOpeningWeekExceptions = new Map<
     {
       actualStartDate: "2026-06-17",
       configuredStartDate: "2026-06-22",
-      partialReturnPct: 0.57,
+      partialReturnPct: 0.52,
       weekEnd: "2026-06-19",
       weekStart: "2026-06-15",
     },
