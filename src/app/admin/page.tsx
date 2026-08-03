@@ -6,7 +6,10 @@ import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import type { InvestorStatus, MockInvestor } from "@/lib/admin-mock-data";
 import { formatMonthName } from "@/lib/formatters";
 import type { InvestorAccessCredentials } from "@/lib/investor-access";
-import { getInvestorAdjustedWeeklyReturnPct } from "@/lib/investor-dashboard-data";
+import {
+  getInvestorAdjustedWeeklyReturnPct,
+  movementAffectsWeeklyReturn,
+} from "@/lib/investor-dashboard-data";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildWeeklyProfitabilityItems,
@@ -207,7 +210,14 @@ function calculateInvestorPerformance(
     );
     const monthlyProfit = monthWeeklyReturns.reduce((total, weeklyReturn) => {
       const weeklyMovementEffect = monthMovements
-        .filter((movement) => movement.movement_date <= weeklyReturn.weekEnd)
+        .filter((movement) =>
+          movementAffectsWeeklyReturn({
+            movementDate: movement.movement_date,
+            movementType: movement.movement_type,
+            weekEnd: weeklyReturn.weekEnd,
+            weekStart: weeklyReturn.weekStart,
+          }),
+        )
         .reduce((sum, movement) => sum + getMovementEffect(movement), 0);
       const weeklyBase = monthStartBalance + weeklyMovementEffect;
 
@@ -224,14 +234,20 @@ function calculateInvestorPerformance(
     movementIndex += 1;
   }
 
-  const netCapital = orderedMovements.reduce(
-    (total, movement) => total + getMovementEffect(movement),
-    0,
-  );
+  const totalContributions = orderedMovements
+    .filter((movement) => movement.movement_type !== "withdrawal")
+    .reduce((total, movement) => total + Number(movement.amount), 0);
+  const totalWithdrawals = orderedMovements
+    .filter((movement) => movement.movement_type === "withdrawal")
+    .reduce((total, movement) => total + Number(movement.amount), 0);
   const currentBalance = roundMoney(balance);
-  const profit = roundMoney(currentBalance - netCapital);
+  const profit = roundMoney(
+    currentBalance + totalWithdrawals - totalContributions,
+  );
   const profitabilityPct =
-    netCapital > 0 ? roundMoney((profit / netCapital) * 100) : 0;
+    totalContributions > 0
+      ? roundMoney((profit / totalContributions) * 100)
+      : 0;
 
   return {
     currentBalance,

@@ -104,6 +104,22 @@ export function getInvestorAdjustedWeeklyReturnPct({
   return exception.partialReturnPct;
 }
 
+export function movementAffectsWeeklyReturn({
+  movementDate,
+  movementType,
+  weekEnd,
+  weekStart,
+}: {
+  movementDate: string;
+  movementType: InvestorDashboardMovementRow["movement_type"];
+  weekEnd: string;
+  weekStart: string;
+}) {
+  return movementType === "withdrawal"
+    ? movementDate <= weekStart
+    : movementDate <= weekEnd;
+}
+
 const dashboardDateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
   month: "2-digit",
@@ -433,7 +449,14 @@ function buildMonthlyData(
     );
     const weeklyBases = monthWeeks.map((week) => {
       const weeklyMovementEffect = monthMovements
-        .filter((movement) => movement.movement_date <= week.week_end)
+        .filter((movement) =>
+          movementAffectsWeeklyReturn({
+            movementDate: movement.movement_date,
+            movementType: movement.movement_type,
+            weekEnd: week.week_end,
+            weekStart: week.week_start,
+          }),
+        )
         .reduce((total, movement) => total + getMovementEffect(movement), 0);
 
       return initialValue + weeklyMovementEffect;
