@@ -75,6 +75,35 @@ const partialOpeningWeekExceptions = new Map<
   ],
 ]);
 
+export function getInvestorAdjustedWeeklyReturnPct({
+  investorId,
+  investorStartDate,
+  returnPct,
+  weekEnd,
+  weekStart,
+}: {
+  investorId: number;
+  investorStartDate: string;
+  returnPct: number;
+  weekEnd: string;
+  weekStart: string;
+}) {
+  const exception = partialOpeningWeekExceptions.get(investorId);
+
+  if (
+    !exception ||
+    ![exception.actualStartDate, exception.configuredStartDate].includes(
+      investorStartDate,
+    ) ||
+    weekStart !== exception.weekStart ||
+    weekEnd !== exception.weekEnd
+  ) {
+    return returnPct;
+  }
+
+  return exception.partialReturnPct;
+}
+
 const dashboardDateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
   month: "2-digit",
@@ -159,7 +188,13 @@ function normalizePartialOpeningWeek({
 
     return {
       ...week,
-      return_pct: exception.partialReturnPct,
+      return_pct: getInvestorAdjustedWeeklyReturnPct({
+        investorId: investor.id,
+        investorStartDate: investor.start_date,
+        returnPct: Number(week.return_pct),
+        weekEnd: week.week_end,
+        weekStart: week.week_start,
+      }),
     };
   });
 

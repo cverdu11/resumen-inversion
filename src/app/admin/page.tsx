@@ -6,6 +6,7 @@ import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import type { InvestorStatus, MockInvestor } from "@/lib/admin-mock-data";
 import { formatMonthName } from "@/lib/formatters";
 import type { InvestorAccessCredentials } from "@/lib/investor-access";
+import { getInvestorAdjustedWeeklyReturnPct } from "@/lib/investor-dashboard-data";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildWeeklyProfitabilityItems,
@@ -54,6 +55,7 @@ type DatabaseMovementRow = {
 
 type ClosedWeeklyReturn = {
   weekEnd: string;
+  weekStart: string;
   returnPct: number;
 };
 
@@ -266,10 +268,20 @@ function mapDatabaseInvestors(
     const withdrawals = investorMovements
       .filter((movement) => movement.movement_type === "withdrawal")
       .reduce((total, movement) => total + Number(movement.amount), 0);
+    const adjustedWeeklyReturns = closedWeeklyReturns.map((weeklyReturn) => ({
+      ...weeklyReturn,
+      returnPct: getInvestorAdjustedWeeklyReturnPct({
+        investorId: investor.id,
+        investorStartDate: investor.start_date,
+        returnPct: weeklyReturn.returnPct,
+        weekEnd: weeklyReturn.weekEnd,
+        weekStart: weeklyReturn.weekStart,
+      }),
+    }));
     const { currentBalance, profit, profitabilityPct } =
       calculateInvestorPerformance(
         investorMovements,
-        closedWeeklyReturns,
+        adjustedWeeklyReturns,
       );
 
     return {
@@ -365,6 +377,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     .filter((week) => week.status === "closed")
     .map((week) => ({
       weekEnd: week.week_end,
+      weekStart: week.week_start,
       returnPct: Number(week.return_pct),
     }))
     .sort((left, right) => left.weekEnd.localeCompare(right.weekEnd));
