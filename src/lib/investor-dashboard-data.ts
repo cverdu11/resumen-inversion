@@ -28,6 +28,53 @@ export type InvestorDashboardWeeklyRow = {
   week_start: string;
 };
 
+type PartialOpeningWeekException = {
+  actualStartDate: string;
+  configuredStartDate: string;
+  partialReturnPct: number;
+  weekEnd: string;
+  weekStart: string;
+};
+
+// These investors joined during a trading week, so their first return differs
+// from the global weekly return. Legacy opening balances are also normalized
+// while their configured start date still points to the following Monday.
+const partialOpeningWeekExceptions = new Map<
+  number,
+  PartialOpeningWeekException
+>([
+  [
+    6,
+    {
+      actualStartDate: "2026-06-17",
+      configuredStartDate: "2026-06-22",
+      partialReturnPct: 0.57,
+      weekEnd: "2026-06-19",
+      weekStart: "2026-06-15",
+    },
+  ],
+  [
+    9,
+    {
+      actualStartDate: "2026-07-15",
+      configuredStartDate: "2026-07-20",
+      partialReturnPct: 1,
+      weekEnd: "2026-07-17",
+      weekStart: "2026-07-13",
+    },
+  ],
+  [
+    10,
+    {
+      actualStartDate: "2026-07-15",
+      configuredStartDate: "2026-07-20",
+      partialReturnPct: 1,
+      weekEnd: "2026-07-17",
+      weekStart: "2026-07-13",
+    },
+  ],
+]);
+
 const dashboardDateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
   month: "2-digit",
@@ -47,6 +94,92 @@ function roundCurrency(value: number) {
 
 function roundPercent(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function normalizePartialOpeningWeek({
+  investor,
+  movements,
+  weeklyRows,
+}: {
+  investor: InvestorDashboardInvestorRow;
+  movements: InvestorDashboardMovementRow[];
+  weeklyRows: InvestorDashboardWeeklyRow[];
+}) {
+  const exception = partialOpeningWeekExceptions.get(investor.id);
+
+  if (
+    !exception ||
+    ![exception.actualStartDate, exception.configuredStartDate].includes(
+      investor.start_date,
+    )
+  ) {
+    return { investor, movements, weeklyRows };
+  }
+
+  const needsOpeningNormalization =
+    investor.start_date === exception.configuredStartDate;
+  const initialMovement = needsOpeningNormalization
+    ? movements
+        .filter(
+          (movement) => movement.movement_type === "initial_contribution",
+        )
+        .sort((left, right) => {
+          const dateComparison = left.movement_date.localeCompare(
+            right.movement_date,
+          );
+
+          return dateComparison === 0 ? left.id - right.id : dateComparison;
+        })[0]
+    : undefined;
+  const normalizedMovements = needsOpeningNormalization
+    ? movements.map((movement) => {
+        if (!initialMovement || movement.id !== initialMovement.id) {
+          return movement;
+        }
+
+        return {
+          ...movement,
+          amount: roundCurrency(
+            Number(movement.amount) / (1 + exception.partialReturnPct / 100),
+          ),
+          movement_date: exception.actualStartDate,
+        };
+      })
+    : movements;
+  let openingWeekFound = false;
+  const normalizedWeeklyRows = weeklyRows.map((week) => {
+    if (
+      week.week_start !== exception.weekStart ||
+      week.week_end !== exception.weekEnd
+    ) {
+      return week;
+    }
+
+    openingWeekFound = true;
+
+    return {
+      ...week,
+      return_pct: exception.partialReturnPct,
+    };
+  });
+
+  if (!openingWeekFound) {
+    normalizedWeeklyRows.push({
+      id: -investor.id,
+      return_pct: exception.partialReturnPct,
+      status: "closed",
+      week_end: exception.weekEnd,
+      week_start: exception.weekStart,
+    });
+  }
+
+  return {
+    investor: needsOpeningNormalization
+      ? { ...investor, start_date: exception.actualStartDate }
+      : investor,
+    movements: normalizedMovements,
+    weeklyRows: normalizedWeeklyRows,
+  };
 }
 
 function getMonthKey(date: string) {
@@ -311,6 +444,14 @@ export function buildInvestorDashboardData({
   referenceDate?: Date;
   weeklyRows: InvestorDashboardWeeklyRow[];
 }) {
+  const normalizedData = normalizePartialOpeningWeek({
+    investor,
+    movements,
+    weeklyRows,
+  });
+  investor = normalizedData.investor;
+  movements = normalizedData.movements;
+  weeklyRows = normalizedData.weeklyRows;
   const currentWeekRange = getCurrentInvestorWeekRange(referenceDate);
   const closedWeeks = weeklyRows.filter(
     (week) =>
