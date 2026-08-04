@@ -305,16 +305,6 @@ function formatMobileWeekRange(startDate: string, endDate: string) {
   ).toLowerCase()}`;
 }
 
-function getDefaultMobileMonthlyExpandedMonth(
-  monthlyDataItems: MonthlyInvestmentItem[],
-) {
-  const latestUsefulMonth = [...monthlyDataItems]
-    .reverse()
-    .find((month) => month.returnPct !== 0 || month.gain !== 0);
-
-  return latestUsefulMonth?.date ?? monthlyDataItems.at(-1)?.date ?? null;
-}
-
 function formatMobileWeeksCount(weeks: WeeklyInvestmentItem[]) {
   if (!weeks.length) {
     return "Sin semanas";
@@ -1104,7 +1094,7 @@ export function InvestmentDashboard({
   const [mobileMonthlySortOrder, setMobileMonthlySortOrder] =
     useState<MobileMonthlySortOrder>("newest");
   const [expandedMobileMonth, setExpandedMobileMonth] = useState<string | null>(
-    () => getDefaultMobileMonthlyExpandedMonth(data.monthlyData),
+    null,
   );
   const returnTone = getKpiTone(investmentSummary.totalReturnPct);
   const profitTone = getKpiTone(investmentSummary.totalProfit);
