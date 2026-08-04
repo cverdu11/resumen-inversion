@@ -302,6 +302,7 @@ function mapDatabaseInvestors(
 
     return {
       id: `inv-db-${investor.id}`,
+      sourceId: investor.id,
       name: investor.first_name,
       surname: investor.last_name,
       slug: investor.slug,

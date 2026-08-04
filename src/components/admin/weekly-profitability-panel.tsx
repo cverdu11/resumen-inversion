@@ -36,6 +36,10 @@ import {
   formatPercent,
   valueTone,
 } from "@/lib/formatters";
+import {
+  getInvestorAdjustedWeeklyReturnPct,
+  movementAffectsWeeklyReturn,
+} from "@/lib/investor-dashboard-data";
 import { cn } from "@/lib/utils";
 import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
 
@@ -130,11 +134,6 @@ type MonthlyProfitabilitySummary = {
   weeks: WeeklyProfitabilityItem[];
 };
 
-type PortfolioMovement = {
-  amount: number;
-  date: string;
-};
-
 const firstMonthlyOverviewSortDirection: Record<
   MonthlyOverviewSortKey,
   SortDirection
@@ -188,38 +187,10 @@ function getNextMonthStart(monthKey: string) {
   return nextMonth.toISOString().slice(0, 10);
 }
 
-function getDateTime(date: string) {
-  return new Date(`${date}T12:00:00`).getTime();
-}
-
-function getMovementWeekWeight(
-  movementDate: string,
-  weekStart: string,
-  weekEnd: string,
+function getMovementEffect(
+  movement: MockInvestor["movements"][number],
 ) {
-  const dayMs = 24 * 60 * 60 * 1000;
-  const startTime = getDateTime(weekStart);
-  const endTime = getDateTime(weekEnd);
-  const movementTime = Math.max(getDateTime(movementDate), startTime);
-  const totalDays = Math.max(1, Math.round((endTime - startTime) / dayMs) + 1);
-  const activeDays = Math.max(
-    0,
-    Math.round((endTime - movementTime) / dayMs) + 1,
-  );
-
-  return Math.min(1, activeDays / totalDays);
-}
-
-function getPortfolioMovements(investors: MockInvestor[]): PortfolioMovement[] {
-  return investors
-    .flatMap((investor) =>
-      investor.movements.map((movement) => ({
-        amount:
-          movement.type === "withdrawal" ? -movement.amount : movement.amount,
-        date: movement.date,
-      })),
-    )
-    .sort((left, right) => left.date.localeCompare(right.date));
+  return movement.type === "withdrawal" ? -movement.amount : movement.amount;
 }
 
 function sortWeeksByPeriod(
@@ -364,9 +335,6 @@ function buildMonthlyProfitabilityOverview(
   periodSort: PeriodSort,
 ): MonthlyProfitabilitySummary[] {
   const weeksByMonth = new Map<string, WeeklyProfitabilityItem[]>();
-  const portfolioMovements = getPortfolioMovements(investors);
-  let movementIndex = 0;
-  let portfolioValue = 0;
 
   for (const week of weeks) {
     const monthKey = week.endDate.slice(0, 7);
@@ -375,9 +343,33 @@ function buildMonthlyProfitabilityOverview(
     weeksByMonth.set(monthKey, existingWeeks);
   }
 
-  const monthlySummaries = [...weeksByMonth.entries()]
-    .sort(([leftMonth], [rightMonth]) => leftMonth.localeCompare(rightMonth))
-    .map(([monthKey, monthWeeks]) => {
+  const chronologicalMonths = [...weeksByMonth.entries()].sort(
+    ([leftMonth], [rightMonth]) => leftMonth.localeCompare(rightMonth),
+  );
+  const monthlyTotals = new Map(
+    chronologicalMonths.map(([monthKey, monthWeeks]) => [
+      monthKey,
+      {
+        averageBaseTotal: 0,
+        finalValue: 0,
+        initialValue: 0,
+        movementTotal: 0,
+        result: 0,
+        weeks: monthWeeks,
+      },
+    ]),
+  );
+
+  for (const investor of investors) {
+    const orderedMovements = [...investor.movements].sort((left, right) => {
+      const dateComparison = left.date.localeCompare(right.date);
+
+      return dateComparison === 0 ? left.id.localeCompare(right.id) : dateComparison;
+    });
+    let balance = 0;
+    let movementIndex = 0;
+
+    for (const [monthKey, monthWeeks] of chronologicalMonths) {
       const monthStart = `${monthKey}-01`;
       const nextMonthStart = getNextMonthStart(monthKey);
       const chronologicalWeeks = [...monthWeeks].sort((left, right) =>
@@ -386,111 +378,103 @@ function buildMonthlyProfitabilityOverview(
       const savedMonthWeeks = chronologicalWeeks.filter((week) => week.isSaved);
 
       while (
-        movementIndex < portfolioMovements.length &&
-        portfolioMovements[movementIndex].date < monthStart
+        movementIndex < orderedMovements.length &&
+        orderedMovements[movementIndex].date < monthStart
       ) {
-        portfolioValue += portfolioMovements[movementIndex].amount;
+        balance += getMovementEffect(orderedMovements[movementIndex]);
         movementIndex += 1;
       }
 
-      const initialValue = portfolioValue;
-      let averageBaseTotal = 0;
-      let movementTotal = 0;
-      let result = 0;
-      let savedWeeksCount = 0;
-
-      for (const week of chronologicalWeeks) {
-        while (
-          movementIndex < portfolioMovements.length &&
-          portfolioMovements[movementIndex].date < week.startDate
-        ) {
-          const movement = portfolioMovements[movementIndex];
-          portfolioValue += movement.amount;
-
-          if (movement.date >= monthStart && movement.date < nextMonthStart) {
-            movementTotal += movement.amount;
-          }
-
-          movementIndex += 1;
-        }
-
-        if (week.isSaved) {
-          let weeklyBase = portfolioValue;
-
-          while (
-            movementIndex < portfolioMovements.length &&
-            portfolioMovements[movementIndex].date <= week.endDate
-          ) {
-            const movement = portfolioMovements[movementIndex];
-            const movementWeight = getMovementWeekWeight(
-              movement.date,
-              week.startDate,
-              week.endDate,
-            );
-
-            weeklyBase += movement.amount * movementWeight;
-            portfolioValue += movement.amount;
-
-            if (movement.date >= monthStart && movement.date < nextMonthStart) {
-              movementTotal += movement.amount;
-            }
-
-            movementIndex += 1;
-          }
-
-          const weeklyResult = (weeklyBase * week.returnPct) / 100;
-
-          averageBaseTotal += weeklyBase;
-          portfolioValue += weeklyResult;
-          result += weeklyResult;
-          savedWeeksCount += 1;
-        } else {
-          while (
-            movementIndex < portfolioMovements.length &&
-            portfolioMovements[movementIndex].date <= week.endDate
-          ) {
-            const movement = portfolioMovements[movementIndex];
-            portfolioValue += movement.amount;
-
-            if (movement.date >= monthStart && movement.date < nextMonthStart) {
-              movementTotal += movement.amount;
-            }
-
-            movementIndex += 1;
-          }
-        }
-      }
+      const initialValue = balance;
+      const monthMovements: MockInvestor["movements"] = [];
 
       while (
-        movementIndex < portfolioMovements.length &&
-        portfolioMovements[movementIndex].date < nextMonthStart
+        movementIndex < orderedMovements.length &&
+        orderedMovements[movementIndex].date < nextMonthStart
       ) {
-        const movement = portfolioMovements[movementIndex];
-        portfolioValue += movement.amount;
-        movementTotal += movement.amount;
+        monthMovements.push(orderedMovements[movementIndex]);
         movementIndex += 1;
       }
 
-      const averageBase =
-        savedWeeksCount > 0 ? averageBaseTotal / savedWeeksCount : initialValue;
-      const returnPct = roundMonthlyValue(
-        savedMonthWeeks.reduce((total, week) => total + week.returnPct, 0),
+      const movementTotal = monthMovements.reduce(
+        (total, movement) => total + getMovementEffect(movement),
+        0,
       );
+      let averageBaseTotal = 0;
+      const result = savedMonthWeeks.reduce((total, week) => {
+        const weeklyMovementEffect = monthMovements
+          .filter((movement) =>
+            movementAffectsWeeklyReturn({
+              movementDate: movement.date,
+              movementType:
+                movement.sourceType ??
+                (movement.type === "withdrawal"
+                  ? "withdrawal"
+                  : "contribution"),
+              weekEnd: week.endDate,
+              weekStart: week.startDate,
+            }),
+          )
+          .reduce(
+            (movementResult, movement) =>
+              movementResult + getMovementEffect(movement),
+            0,
+          );
+        const weeklyBase = initialValue + weeklyMovementEffect;
+        const returnPct = investor.sourceId
+          ? getInvestorAdjustedWeeklyReturnPct({
+              investorId: investor.sourceId,
+              investorStartDate: investor.startDate,
+              returnPct: week.returnPct,
+              weekEnd: week.endDate,
+              weekStart: week.startDate,
+            })
+          : week.returnPct;
 
-      return {
-        averageBase: roundMonthlyValue(averageBase),
-        id: monthKey,
-        finalValue: roundMonthlyValue(portfolioValue),
-        initialValue: roundMonthlyValue(initialValue),
-        monthLabel: formatMonthTitle(monthKey),
-        movementTotal: roundMonthlyValue(movementTotal),
-        result: roundMonthlyValue(result),
-        returnPct,
-        savedWeeksCount,
-        totalWeeksCount: monthWeeks.length,
-        weeks: sortWeeksByPeriod(monthWeeks, periodSort),
-      };
-    });
+        averageBaseTotal += weeklyBase;
+
+        return weeklyBase > 0
+          ? total + (weeklyBase * returnPct) / 100
+          : total;
+      }, 0);
+      balance = initialValue + movementTotal + result;
+      const totals = monthlyTotals.get(monthKey);
+
+      if (totals) {
+        totals.averageBaseTotal += averageBaseTotal;
+        totals.finalValue += balance;
+        totals.initialValue += initialValue;
+        totals.movementTotal += movementTotal;
+        totals.result += result;
+      }
+    }
+  }
+
+  const monthlySummaries = chronologicalMonths.map(([monthKey, monthWeeks]) => {
+    const totals = monthlyTotals.get(monthKey)!;
+    const savedMonthWeeks = monthWeeks.filter((week) => week.isSaved);
+    const savedWeeksCount = savedMonthWeeks.length;
+
+    return {
+      averageBase: roundMonthlyValue(
+        savedWeeksCount > 0
+          ? totals.averageBaseTotal / savedWeeksCount
+          : totals.initialValue,
+      ),
+      id: monthKey,
+      finalValue: roundMonthlyValue(totals.finalValue),
+      initialValue: roundMonthlyValue(totals.initialValue),
+      monthLabel: formatMonthTitle(monthKey),
+      movementTotal: roundMonthlyValue(totals.movementTotal),
+      result: roundMonthlyValue(totals.result),
+      returnPct: roundMonthlyValue(
+        savedMonthWeeks.reduce((total, week) => total + week.returnPct, 0),
+      ),
+      savedWeeksCount,
+      totalWeeksCount: monthWeeks.length,
+      weeks: sortWeeksByPeriod(monthWeeks, periodSort),
+    };
+  });
 
   return monthlySummaries.sort((left, right) =>
     periodSort === "desc"

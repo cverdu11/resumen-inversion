@@ -27,6 +27,7 @@ export type InvestorMonthlySummary = {
 
 export type MockInvestor = {
   id: string;
+  sourceId?: number;
   name: string;
   surname: string;
   slug: string;
