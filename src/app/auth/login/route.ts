@@ -30,7 +30,7 @@ async function getInvestorForCurrentUser(
   const { data, error } = await supabase
     .from("investors")
     .select("id, slug")
-    .eq("email", normalizedEmail)
+    .ilike("email", normalizedEmail)
     .maybeSingle();
 
   if (error) {
@@ -79,7 +79,16 @@ export async function POST(request: NextRequest) {
     redirect(new URL("/admin?login_status=success", request.url).toString());
   }
 
-  const investor = await getInvestorForCurrentUser(supabase, email);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    await supabase.auth.signOut();
+    redirect(buildLandingRedirect(request, role, "login_error", "server"));
+  }
+
+  const investor = await getInvestorForCurrentUser(supabase, user.email);
 
   if (!investor) {
     await supabase.auth.signOut();

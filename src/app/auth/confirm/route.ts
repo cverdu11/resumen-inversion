@@ -4,8 +4,28 @@ import { createClient } from "@/lib/supabase/server";
 
 const resetPath = "/recuperar-contrasena/reset";
 
-function getAllowedNext(value: string | null) {
-  return value === resetPath ? value : null;
+function getAllowedNext(value: string | null, request: NextRequest) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const next = new URL(value, request.url);
+    const requestOrigin = new URL(request.url).origin;
+
+    if (
+      next.origin !== requestOrigin ||
+      next.pathname !== resetPath ||
+      next.search ||
+      next.hash
+    ) {
+      return null;
+    }
+
+    return resetPath;
+  } catch {
+    return null;
+  }
 }
 
 function getOtpType(value: string | null): "invite" | "recovery" | null {
@@ -21,9 +41,21 @@ function recoveryErrorRedirect(request: NextRequest, status = 307) {
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const next = getAllowedNext(url.searchParams.get("next"));
+  const next = getAllowedNext(url.searchParams.get("next"), request);
   const tokenHash = url.searchParams.get("token_hash");
   const type = getOtpType(url.searchParams.get("type"));
+  const code = url.searchParams.get("code");
+
+  if (next && code) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error) {
+      return NextResponse.redirect(new URL(next, request.url));
+    }
+
+    return recoveryErrorRedirect(request);
+  }
 
   if (!next || !tokenHash || !type) {
     return recoveryErrorRedirect(request);
@@ -39,7 +71,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
-  const next = getAllowedNext(String(formData.get("next") ?? ""));
+  const next = getAllowedNext(String(formData.get("next") ?? ""), request);
   const tokenHash = String(formData.get("token_hash") ?? "");
   const type = getOtpType(String(formData.get("type") ?? ""));
 
