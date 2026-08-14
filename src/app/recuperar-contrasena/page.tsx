@@ -20,11 +20,11 @@ export default async function RecoveryPage({ searchParams }: RecoveryPageProps) 
           tone: "success",
           text: "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.",
         }
-      : params?.error === "invalid_link"
-        ? {
-            tone: "error",
-            text: "El enlace no es válido o ha caducado. Solicita uno nuevo.",
-          }
+        : params?.error === "invalid_link"
+          ? {
+              tone: "error",
+              text: "Este enlace ya se utilizó o ha caducado. Pide al trader que genere uno nuevo.",
+            }
         : params?.error === "invalid_email"
           ? {
               tone: "error",
