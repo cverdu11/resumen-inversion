@@ -50,11 +50,15 @@ export function normalizeInvestorEmail(value: FormDataEntryValue | null) {
 }
 
 function getSiteUrl() {
+  const productionFallback = "https://resumen-inversion.vercel.app";
   const rawUrl =
     process.env.NEXT_PUBLIC_SITE_URL ??
     process.env.SITE_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL ??
-    process.env.VERCEL_URL;
+    process.env.VERCEL_URL ??
+    (process.env.NODE_ENV === "production"
+      ? productionFallback
+      : `http://localhost:${process.env.PORT ?? "3000"}`);
 
   if (rawUrl) {
     try {
@@ -63,6 +67,13 @@ function getSiteUrl() {
       );
 
       if (url.protocol === "http:" || url.protocol === "https:") {
+        if (
+          process.env.NODE_ENV === "production" &&
+          ["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+        ) {
+          return productionFallback;
+        }
+
         return url.origin;
       }
     } catch {
@@ -70,7 +81,9 @@ function getSiteUrl() {
     }
   }
 
-  return `http://localhost:${process.env.PORT ?? "3000"}`;
+  return process.env.NODE_ENV === "production"
+    ? productionFallback
+    : `http://localhost:${process.env.PORT ?? "3000"}`;
 }
 
 function escapeHtml(value: string) {
