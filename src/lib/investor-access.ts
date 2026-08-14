@@ -233,9 +233,42 @@ async function sendInvestorAccessEmail({
       }),
     });
 
+    if (!response.ok) {
+      console.error("Investor access email delivery failed", {
+        status: response.status,
+      });
+    }
+
     return { ok: response.ok };
   } catch {
+    console.error("Investor access email delivery failed", {
+      status: "network_error",
+    });
     return { ok: false as const };
+  }
+}
+
+async function sendSupabaseRecoveryEmail(email: string) {
+  try {
+    const admin = createAdminClient();
+    const redirectTo = new URL("/auth/confirm", getSiteUrl());
+    redirectTo.searchParams.set("next", "/recuperar-contrasena/reset");
+    const { error } = await admin.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo.toString(),
+    });
+
+    if (error) {
+      console.error("Supabase recovery email fallback failed", {
+        status: error.status ?? "unknown",
+      });
+    }
+
+    return !error;
+  } catch {
+    console.error("Supabase recovery email fallback failed", {
+      status: "network_error",
+    });
+    return false;
   }
 }
 
@@ -306,7 +339,7 @@ export async function createAndSendInvestorRecovery(
     }
 
     const investorName = `${investor.first_name} ${investor.last_name}`.trim();
-    const emailResult = await sendInvestorAccessEmail({
+    const accessEmailResult = await sendInvestorAccessEmail({
       accessUrl: getAccessUrl(tokenHash, verificationType),
       email,
       investorName: investorName || "inversor",
@@ -314,7 +347,11 @@ export async function createAndSendInvestorRecovery(
       mode: "recovery",
     });
 
-    return { ok: emailResult.ok };
+    if (accessEmailResult.ok) {
+      return { ok: true };
+    }
+
+    return { ok: await sendSupabaseRecoveryEmail(email) };
   } catch {
     return { ok: false };
   }

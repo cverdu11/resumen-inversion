@@ -46,7 +46,7 @@ export default async function InvestorPage({ searchParams }: InvestorPageProps) 
   const { data: investor, error } = await supabase
     .from("investors")
     .select("id, first_name, last_name, email, start_date")
-    .eq("email", normalizedEmail)
+    .ilike("email", normalizedEmail)
     .maybeSingle();
 
   if (error || !investor) {
