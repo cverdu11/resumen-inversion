@@ -8,6 +8,8 @@ import {
   type InvestorDashboardMovementRow,
   type InvestorDashboardWeeklyRow,
 } from "@/lib/investor-dashboard-data";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { hasSupabaseAdminEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -42,11 +44,11 @@ export default async function InvestorPage({ searchParams }: InvestorPageProps) 
     redirect("/?role=investor&login_error=session_required");
   }
 
-  const normalizedEmail = user.email.trim().toLowerCase();
-  const { data: investor, error } = await supabase
+  const dataClient = hasSupabaseAdminEnv() ? createAdminClient() : supabase;
+  const { data: investor, error } = await dataClient
     .from("investors")
     .select("id, first_name, last_name, email, start_date")
-    .ilike("email", normalizedEmail)
+    .ilike("email", user.email)
     .maybeSingle();
 
   if (error || !investor) {
@@ -60,12 +62,12 @@ export default async function InvestorPage({ searchParams }: InvestorPageProps) 
   const requiresPasswordChange =
     userMetadata.must_change_password === true ||
     (userMetadata.role === "investor" && !userMetadata.password_updated_at);
-  const { data: movementRows } = await supabase
+  const { data: movementRows } = await dataClient
     .from("investor_movements")
     .select("id, movement_type, movement_date, amount, note")
     .eq("investor_id", typedInvestor.id)
     .order("movement_date", { ascending: true });
-  const { data: weeklyRows } = await supabase
+  const { data: weeklyRows } = await dataClient
     .from("weekly_profitability")
     .select("id, week_start, week_end, return_pct, status")
     .eq("status", "closed")

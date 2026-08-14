@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
+import { hasSupabaseAdminEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
 type LoginRole = "trader" | "investor";
@@ -26,11 +28,11 @@ async function getInvestorForCurrentUser(
   supabase: Awaited<ReturnType<typeof createClient>>,
   email: string,
 ) {
-  const normalizedEmail = email.trim().toLowerCase();
-  const { data, error } = await supabase
+  const dataClient = hasSupabaseAdminEnv() ? createAdminClient() : supabase;
+  const { data, error } = await dataClient
     .from("investors")
     .select("id, slug")
-    .ilike("email", normalizedEmail)
+    .ilike("email", email)
     .maybeSingle();
 
   if (error) {
@@ -79,16 +81,7 @@ export async function POST(request: NextRequest) {
     redirect(new URL("/admin?login_status=success", request.url).toString());
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user?.email) {
-    await supabase.auth.signOut();
-    redirect(buildLandingRedirect(request, role, "login_error", "server"));
-  }
-
-  const investor = await getInvestorForCurrentUser(supabase, user.email);
+  const investor = await getInvestorForCurrentUser(supabase, email);
 
   if (!investor) {
     await supabase.auth.signOut();
