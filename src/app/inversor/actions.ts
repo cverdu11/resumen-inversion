@@ -2,8 +2,6 @@
 
 import { redirect } from "next/navigation";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { hasSupabaseAdminEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
 function getSafeNext(value: FormDataEntryValue | null) {
@@ -35,11 +33,11 @@ async function getInvestorForEmail(
   supabase: Awaited<ReturnType<typeof createClient>>,
   email: string,
 ) {
-  const dataClient = hasSupabaseAdminEnv() ? createAdminClient() : supabase;
-  const { data, error } = await dataClient
+  const normalizedEmail = email.trim().toLowerCase();
+  const { data, error } = await supabase
     .from("investors")
     .select("id")
-    .ilike("email", email)
+    .eq("email", normalizedEmail)
     .maybeSingle();
 
   if (error) {

@@ -64,17 +64,17 @@ const accessButtonClassName = "h-10 w-full justify-center sm:w-52";
 
 const accessStatusCopy: Record<string, string> = {
   manual:
-    "Credenciales generadas. Copialas y envialas manualmente al inversor.",
-  sent: "Credenciales generadas. Resend ha aceptado el envio del correo.",
+    "Enlace de acceso generado. Copialo y envialo manualmente al inversor.",
+  sent: "Enlace de acceso generado. Resend ha aceptado el envio del correo.",
 };
 
 const accessErrorCopy: Record<string, string> = {
   auth_config:
-    "Email guardado, pero falta configurar SUPABASE_SERVICE_ROLE_KEY para crear el usuario de acceso.",
-  auth_create: "No se pudo crear o actualizar el usuario de acceso.",
+    "Email guardado, pero falta configurar SUPABASE_SERVICE_ROLE_KEY para crear el enlace de acceso.",
+  auth_create: "No se pudo generar el enlace de acceso.",
   duplicate_email: "Ese email ya esta asignado a otro inversor.",
   invalid_email: "El email del inversor no es valido.",
-  missing_email: "Anade un email al inversor antes de enviar credenciales.",
+  missing_email: "Anade un email al inversor antes de enviar el enlace de acceso.",
   trader_email: "Ese email pertenece a una cuenta trader activa.",
 };
 
@@ -307,7 +307,7 @@ function SendInvestorAccessButton() {
       disabled={pending}
     >
       <Mail data-icon="inline-start" />
-      {pending ? "Enviando..." : "Enviar credenciales"}
+      {pending ? "Enviando..." : "Enviar enlace de acceso"}
     </Button>
   );
 }
@@ -318,16 +318,16 @@ function InvestorAccessCredentialsPanel({
   credentials: InvestorAccessCredentials;
 }) {
   const [isCopied, setIsCopied] = useState(false);
-  const credentialsText = [
-    `Inversor: ${credentials.investorName}`,
-    `Usuario: ${credentials.email}`,
-    `Contrasena: ${credentials.password}`,
+  const accessText = [
+    `Email: ${credentials.email}`,
+    `Modo: ${credentials.mode === "invite" ? "Activacion" : "Recuperacion"}`,
+    `Enlace de acceso: ${credentials.accessUrl}`,
     `Login: ${credentials.loginUrl}`,
   ].join("\n");
 
-  async function copyCredentials() {
+  async function copyAccessLink() {
     try {
-      await navigator.clipboard.writeText(credentialsText);
+      await navigator.clipboard.writeText(accessText);
       setIsCopied(true);
       window.setTimeout(() => setIsCopied(false), 2200);
     } catch {
@@ -340,16 +340,16 @@ function InvestorAccessCredentialsPanel({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-card-foreground">
-            Credenciales temporales listas para copiar
+            Enlace de acceso listo para copiar
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Puedes enviarlas manualmente al inversor. La contrasena se regenera
-            cada vez que pulsas enviar credenciales.
+            Puedes enviarlo manualmente al inversor. Es de un solo uso y le permite
+            elegir una contraseña.
           </p>
-          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
             <div className="rounded-md border bg-background/45 px-3 py-2">
               <p className="text-[0.68rem] font-semibold uppercase text-muted-foreground">
-                Usuario
+                Email
               </p>
               <p className="mt-1 truncate font-semibold text-card-foreground">
                 {credentials.email}
@@ -357,10 +357,18 @@ function InvestorAccessCredentialsPanel({
             </div>
             <div className="rounded-md border bg-background/45 px-3 py-2">
               <p className="text-[0.68rem] font-semibold uppercase text-muted-foreground">
-                Contrasena
+                Modo
               </p>
-              <p className="mt-1 font-semibold tracking-normal text-card-foreground">
-                {credentials.password}
+              <p className="mt-1 font-semibold text-card-foreground">
+                {credentials.mode === "invite" ? "Activacion" : "Recuperacion"}
+              </p>
+            </div>
+            <div className="rounded-md border bg-background/45 px-3 py-2">
+              <p className="text-[0.68rem] font-semibold uppercase text-muted-foreground">
+                Enlace de acceso
+              </p>
+              <p className="mt-1 truncate font-semibold text-card-foreground">
+                {credentials.accessUrl}
               </p>
             </div>
             <div className="rounded-md border bg-background/45 px-3 py-2">
@@ -375,7 +383,7 @@ function InvestorAccessCredentialsPanel({
         </div>
         <Button
           className="shrink-0 justify-center"
-          onClick={copyCredentials}
+          onClick={copyAccessLink}
           size="sm"
           type="button"
           variant="outline"
@@ -385,7 +393,7 @@ function InvestorAccessCredentialsPanel({
           ) : (
             <Copy data-icon="inline-start" />
           )}
-          {isCopied ? "Copiado" : "Copiar credenciales"}
+          {isCopied ? "Copiado" : "Copiar enlace"}
         </Button>
       </div>
     </div>
