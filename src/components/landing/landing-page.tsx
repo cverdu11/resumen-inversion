@@ -21,13 +21,6 @@ function getLoginMessage(error?: string, status?: string) {
     };
   }
 
-  if (status === "password_reset") {
-    return {
-      tone: "success" as const,
-      text: "Contraseña actualizada. Ya puedes iniciar sesión.",
-    };
-  }
-
   if (error === "missing") {
     return {
       tone: "error" as const,
@@ -150,9 +143,9 @@ export function LandingPage({
   const message = getLoginMessage(loginError, loginStatus);
 
   return (
-    <main className="min-h-[100dvh] bg-[#f7f5ef] text-[#171b25] lg:relative lg:min-h-screen lg:bg-[#020617]">
-      <section className="relative grid min-h-[100dvh] w-full bg-[#f7f5ef] lg:min-h-screen lg:grid-cols-[minmax(390px,31vw)_minmax(0,1fr)] lg:overflow-hidden lg:bg-[#050914]">
-        <aside className="relative z-10 flex min-h-[100dvh] flex-col bg-[#f7f5ef] px-7 py-6 pb-8 sm:px-10 sm:py-9 lg:min-h-screen lg:overflow-visible">
+    <main className="fixed inset-0 h-[100dvh] overflow-hidden bg-[#f7f5ef] text-[#171b25] lg:relative lg:inset-auto lg:h-auto lg:min-h-screen lg:bg-[#020617]">
+      <section className="relative grid h-[100dvh] w-full overflow-hidden bg-[#f7f5ef] lg:min-h-screen lg:grid-cols-[minmax(390px,31vw)_minmax(0,1fr)] lg:bg-[#050914]">
+        <aside className="relative z-10 flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#f7f5ef] px-7 py-6 sm:px-10 sm:py-9 lg:min-h-screen lg:overflow-visible">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-[0_10px_28px_rgba(23,27,37,0.08)]">
               <OilDropIcon className="size-6 text-black" />
@@ -218,13 +211,6 @@ export function LandingPage({
                 type="password"
               />
             </div>
-
-            <a
-              className="mt-4 text-center text-sm font-semibold text-[#555966] underline decoration-[#555966]/40 underline-offset-4 transition-colors hover:text-[#171b25]"
-              href="/recuperar-contrasena"
-            >
-              ¿Olvidaste tu contraseña?
-            </a>
 
             <button
               className="mt-7 flex h-12 cursor-pointer items-center justify-center rounded-full bg-[#171b25] px-5 text-sm font-black uppercase tracking-[0.1em] text-white shadow-[0_18px_34px_rgba(23,27,37,0.22)] transition-transform hover:-translate-y-0.5 lg:mt-8"
