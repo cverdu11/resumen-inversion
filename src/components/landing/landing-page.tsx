@@ -21,6 +21,13 @@ function getLoginMessage(error?: string, status?: string) {
     };
   }
 
+  if (status === "password_reset") {
+    return {
+      tone: "success" as const,
+      text: "Contraseña actualizada. Ya puedes iniciar sesión.",
+    };
+  }
+
   if (error === "missing") {
     return {
       tone: "error" as const,
@@ -211,6 +218,13 @@ export function LandingPage({
                 type="password"
               />
             </div>
+
+            <a
+              className="mt-4 text-center text-sm font-semibold text-[#555966] underline decoration-[#555966]/40 underline-offset-4 transition-colors hover:text-[#171b25]"
+              href="/recuperar-contrasena"
+            >
+              ¿Olvidaste tu contraseña?
+            </a>
 
             <button
               className="mt-7 flex h-12 cursor-pointer items-center justify-center rounded-full bg-[#171b25] px-5 text-sm font-black uppercase tracking-[0.1em] text-white shadow-[0_18px_34px_rgba(23,27,37,0.22)] transition-transform hover:-translate-y-0.5 lg:mt-8"

@@ -84,7 +84,8 @@ function parseInvestorAccessCredentials(value?: string) {
       typeof parsed.email !== "string" ||
       typeof parsed.investorName !== "string" ||
       typeof parsed.loginUrl !== "string" ||
-      typeof parsed.password !== "string"
+      typeof parsed.accessUrl !== "string" ||
+      (parsed.mode !== "invite" && parsed.mode !== "recovery")
     ) {
       return undefined;
     }

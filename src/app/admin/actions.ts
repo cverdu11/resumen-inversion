@@ -287,14 +287,16 @@ async function validateInvestorEmail(
   email: string,
   currentInvestorId?: number,
 ) {
-  if (!email) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
     return null;
   }
 
   let duplicateQuery = supabase
     .from("investors")
     .select("id")
-    .ilike("email", email)
+    .eq("email", normalizedEmail)
     .limit(1);
 
   if (currentInvestorId) {
@@ -310,7 +312,7 @@ async function validateInvestorEmail(
   const { data: traderProfiles } = await supabase
     .from("trader_profiles")
     .select("id")
-    .ilike("email", email)
+    .eq("email", normalizedEmail)
     .eq("is_active", true)
     .limit(1);
 

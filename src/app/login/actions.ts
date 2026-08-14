@@ -23,10 +23,11 @@ async function getInvestorForCurrentUser(
   supabase: Awaited<ReturnType<typeof createClient>>,
   email: string,
 ) {
+  const normalizedEmail = email.trim().toLowerCase();
   const { data, error } = await supabase
     .from("investors")
     .select("id, slug")
-    .ilike("email", email)
+    .eq("email", normalizedEmail)
     .maybeSingle();
 
   if (error) {
