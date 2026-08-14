@@ -318,16 +318,10 @@ function InvestorAccessCredentialsPanel({
   credentials: InvestorAccessCredentials;
 }) {
   const [isCopied, setIsCopied] = useState(false);
-  const accessText = [
-    `Email: ${credentials.email}`,
-    `Modo: ${credentials.mode === "invite" ? "Activacion" : "Recuperacion"}`,
-    `Enlace de acceso: ${credentials.accessUrl}`,
-    `Login: ${credentials.loginUrl}`,
-  ].join("\n");
 
   async function copyAccessLink() {
     try {
-      await navigator.clipboard.writeText(accessText);
+      await navigator.clipboard.writeText(credentials.accessUrl);
       setIsCopied(true);
       window.setTimeout(() => setIsCopied(false), 2200);
     } catch {
@@ -343,8 +337,8 @@ function InvestorAccessCredentialsPanel({
             Enlace de acceso listo para copiar
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Puedes enviarlo manualmente al inversor. Es de un solo uso y le permite
-            elegir una contraseña.
+            Comparte únicamente este enlace con el inversor. Es de un solo uso;
+            no lo abras tú desde el panel.
           </p>
           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
             <div className="rounded-md border bg-background/45 px-3 py-2">
