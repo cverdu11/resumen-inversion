@@ -275,12 +275,15 @@ export function PasswordRecoveryScreen() {
           <p className="mt-3 text-sm leading-6 text-[#6f7280]">
             Ya puedes entrar con tu nueva contraseña.
           </p>
-          <Link
+          <button
             className="mt-7 flex h-12 items-center justify-center rounded-full bg-[#171b25] px-5 text-sm font-black uppercase tracking-[0.1em] text-white shadow-[0_18px_34px_rgba(23,27,37,0.22)] transition-transform hover:-translate-y-0.5"
-            href="/?role=investor&login_status=password_reset"
+            type="button"
+            onClick={() =>
+              window.location.assign("/?role=investor&login_status=password_reset")
+            }
           >
             Ir al inicio de sesión
-          </Link>
+          </button>
         </div>
       </RecoveryShell>
     );
