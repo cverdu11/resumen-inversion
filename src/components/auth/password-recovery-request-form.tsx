@@ -84,6 +84,7 @@ export function PasswordRecoveryRequestForm() {
                     <input
                       className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-[#8b8d97]"
                       type="email"
+                      name="email"
                       autoComplete="email"
                       placeholder="inversor@email.com"
                       value={email}
