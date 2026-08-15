@@ -4,20 +4,8 @@ import { FormEvent, useState } from "react";
 import { Check, Mail, Send } from "lucide-react";
 import Link from "next/link";
 
+import { requestPasswordRecovery } from "@/app/recuperar-contrasena/actions";
 import { OilDropIcon } from "@/components/landing/oil-drop-icon";
-import { createClient } from "@/lib/supabase/client";
-
-const PRODUCTION_SITE_URL = "https://resumen-inversion.vercel.app";
-
-function getRecoveryRedirectUrl() {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
-
-  if (configuredSiteUrl && !configuredSiteUrl.includes("localhost")) {
-    return configuredSiteUrl;
-  }
-
-  return PRODUCTION_SITE_URL;
-}
 
 export function PasswordRecoveryRequestForm() {
   const [email, setEmail] = useState("");
@@ -30,12 +18,11 @@ export function PasswordRecoveryRequestForm() {
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: getRecoveryRedirectUrl(),
-      });
+      const result = await requestPasswordRecovery(
+        new FormData(event.currentTarget),
+      );
 
-      setStatus(error ? "error" : "success");
+      setStatus(result.ok ? "success" : "error");
     } catch {
       setStatus("error");
     } finally {
