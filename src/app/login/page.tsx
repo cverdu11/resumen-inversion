@@ -117,6 +117,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 required
               />
             </label>
+            <a
+              className="-mt-1 self-end text-sm text-muted-foreground underline decoration-border underline-offset-4 transition-colors hover:text-foreground"
+              href="/recuperar-contrasena?role=trader"
+            >
+              ¿Olvidaste tu contraseña?
+            </a>
             <Button type="submit" className="mt-1">
               Entrar al panel
             </Button>
