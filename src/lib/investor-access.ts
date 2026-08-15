@@ -8,7 +8,7 @@ export type InvestorAccessError =
   | "auth_config"
   | "auth_create";
 
-export type InvestorAccessStatus = "manual" | "sent";
+export type InvestorAccessStatus = "manual";
 
 type InvestorAccessInput = {
   email: string;
@@ -73,14 +73,6 @@ export function getSiteUrl() {
   return normalizedUrl.startsWith("http")
     ? normalizedUrl
     : `https://${normalizedUrl}`;
-}
-
-export function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }
 
 async function findAuthUserByEmail(email: string) {
@@ -155,73 +147,7 @@ async function upsertInvestorAuthUser({
   });
 }
 
-async function sendInvestorAccessEmail({
-  email,
-  investorName,
-  password,
-}: Pick<InvestorAccessInput, "email" | "investorName"> & {
-  password: string;
-}) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from =
-    process.env.INVESTOR_ACCESS_EMAIL_FROM ??
-    process.env.RESEND_FROM_EMAIL ??
-    "";
-
-  if (!apiKey || !from) {
-    return { ok: false as const, error: "email_config" as const };
-  }
-
-  const loginUrl = `${getSiteUrl()}/?role=investor`;
-  const safeName = escapeHtml(investorName);
-  const safeEmail = escapeHtml(email);
-  const safePassword = escapeHtml(password);
-  const safeLoginUrl = escapeHtml(loginUrl);
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: email,
-      subject: "Acceso a Oro Negro",
-      text: [
-        `Hola ${investorName},`,
-        "",
-        "Estas son tus credenciales de acceso a Oro Negro:",
-        `Usuario: ${email}`,
-        `Contrasena: ${password}`,
-        `Login: ${loginUrl}`,
-      ].join("\n"),
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-          <h1 style="font-size: 20px; margin: 0 0 16px;">Acceso a Oro Negro</h1>
-          <p>Hola ${safeName},</p>
-          <p>Estas son tus credenciales de acceso:</p>
-          <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; background: #f9fafb;">
-            <p><strong>Usuario:</strong> ${safeEmail}</p>
-            <p><strong>Contrasena:</strong> ${safePassword}</p>
-          </div>
-          <p>
-            <a href="${safeLoginUrl}" style="display: inline-block; margin-top: 12px; background: #111827; color: #ffffff; padding: 10px 16px; border-radius: 999px; text-decoration: none;">
-              Entrar al panel inversor
-            </a>
-          </p>
-        </div>
-      `,
-    }),
-  });
-
-  if (!response.ok) {
-    return { ok: false as const, error: "email_send" as const };
-  }
-
-  return { ok: true as const };
-}
-
-export async function createAndSendInvestorAccess(
+export async function createInvestorAccess(
   input: InvestorAccessInput,
 ): Promise<InvestorAccessResult> {
   if (!hasSupabaseAdminEnv()) {
@@ -244,15 +170,5 @@ export async function createAndSendInvestorAccess(
     loginUrl: `${getSiteUrl()}/?role=investor`,
     password,
   };
-  const emailResult = await sendInvestorAccessEmail({
-    email: input.email,
-    investorName: input.investorName,
-    password,
-  });
-
-  if (!emailResult.ok) {
-    return { ok: true, status: "manual", credentials };
-  }
-
-  return { ok: true, status: "sent", credentials };
+  return { ok: true, status: "manual", credentials };
 }

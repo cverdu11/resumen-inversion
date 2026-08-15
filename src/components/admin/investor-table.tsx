@@ -65,7 +65,6 @@ const accessButtonClassName = "h-10 w-full justify-center sm:w-52";
 const accessStatusCopy: Record<string, string> = {
   manual:
     "Credenciales generadas. Copialas y envialas manualmente al inversor.",
-  sent: "Credenciales generadas. Resend ha aceptado el envio del correo.",
 };
 
 const accessErrorCopy: Record<string, string> = {
@@ -307,7 +306,7 @@ function SendInvestorAccessButton() {
       disabled={pending}
     >
       <Mail data-icon="inline-start" />
-      {pending ? "Enviando..." : "Enviar credenciales"}
+      {pending ? "Generando..." : "Generar credenciales"}
     </Button>
   );
 }
@@ -344,7 +343,7 @@ function InvestorAccessCredentialsPanel({
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Puedes enviarlas manualmente al inversor. La contrasena se regenera
-            cada vez que pulsas enviar credenciales.
+            cada vez que pulsas generar credenciales.
           </p>
           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
             <div className="rounded-md border bg-background/45 px-3 py-2">
@@ -466,7 +465,7 @@ function InvestorEditPanel({ investor }: { investor: MockInvestor }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             La ruta se actualiza automaticamente si cambias el nombre. Si
-            anades o cambias el email, se enviaran nuevas credenciales.
+            anades o cambias el email, se generaran nuevas credenciales.
           </p>
           <div className="w-full sm:w-auto">
             <UpdateInvestorButton />

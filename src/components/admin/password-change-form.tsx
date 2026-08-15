@@ -1,11 +1,22 @@
 "use client";
 
 import { AlertCircle, CheckCircle2, ChevronDown, KeyRound } from "lucide-react";
+import { useFormStatus } from "react-dom";
 
 import { changeAdminPassword } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 
 type PasswordChangeAction = (formData: FormData) => void | Promise<void>;
+
+function PasswordSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button className="mt-1 w-full" disabled={pending} type="submit" size="sm">
+      {pending ? "Guardando..." : "Guardar contraseña"}
+    </Button>
+  );
+}
 
 const inputClassName =
   "h-10 w-full rounded-md border bg-background/45 px-3 text-sm text-card-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/30";
@@ -143,9 +154,7 @@ export function PasswordChangeForm({
             required
           />
         </label>
-        <Button className="mt-1 w-full" type="submit" size="sm">
-          Guardar contraseña
-        </Button>
+        <PasswordSubmitButton />
       </form>
     </details>
   );

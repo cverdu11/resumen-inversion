@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
-  createAndSendInvestorAccess,
+  createInvestorAccess,
   normalizeInvestorEmail,
   type InvestorAccessCredentials,
   type InvestorAccessError,
@@ -393,7 +393,7 @@ export async function createInvestor(formData: FormData) {
   }
 
   if (normalizedEmail) {
-    const accessResult = await createAndSendInvestorAccess({
+    const accessResult = await createInvestorAccess({
       email: normalizedEmail,
       investorId: Number(investor.id),
       investorName: `${name} ${surname}`,
@@ -521,7 +521,7 @@ export async function updateInvestor(formData: FormData) {
     normalizedEmail &&
     normalizedEmail !== String(investor.email ?? "").toLowerCase()
   ) {
-    const accessResult = await createAndSendInvestorAccess({
+    const accessResult = await createInvestorAccess({
       email: normalizedEmail,
       investorId: Number(investor.id),
       investorName: `${name} ${surname}`,
@@ -588,7 +588,7 @@ export async function sendInvestorAccess(formData: FormData) {
     );
   }
 
-  const accessResult = await createAndSendInvestorAccess({
+  const accessResult = await createInvestorAccess({
     email,
     investorId: Number(investor.id),
     investorName: `${investor.first_name} ${investor.last_name}`,
