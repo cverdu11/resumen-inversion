@@ -6,6 +6,7 @@ import {
   LiveOilQuoteInline,
 } from "@/components/landing/live-oil-quote-card";
 import { OilDropIcon } from "@/components/landing/oil-drop-icon";
+import { PasswordRecoveryScreen } from "@/components/auth/password-recovery-screen";
 
 type LoginRole = "trader" | "investor";
 
@@ -18,6 +19,13 @@ function getLoginMessage(error?: string, status?: string) {
     return {
       tone: "success" as const,
       text: "Sesion cerrada correctamente.",
+    };
+  }
+
+  if (status === "password_reset") {
+    return {
+      tone: "success" as const,
+      text: "Contraseña actualizada. Ya puedes iniciar sesión.",
     };
   }
 
@@ -100,6 +108,7 @@ function LoginField({
           name={name}
           type={type}
           aria-label={label}
+          autoComplete={name === "email" ? "username" : "current-password"}
           required
         />
       </span>
@@ -141,11 +150,14 @@ export function LandingPage({
 }) {
   const selectedRole = getSelectedRole(role);
   const message = getLoginMessage(loginError, loginStatus);
+  const recoveryHref = `/recuperar-contrasena?role=${selectedRole}`;
 
   return (
-    <main className="fixed inset-0 h-[100dvh] overflow-hidden bg-[#f7f5ef] text-[#171b25] lg:relative lg:inset-auto lg:h-auto lg:min-h-screen lg:bg-[#020617]">
-      <section className="relative grid h-[100dvh] w-full overflow-hidden bg-[#f7f5ef] lg:min-h-screen lg:grid-cols-[minmax(390px,31vw)_minmax(0,1fr)] lg:bg-[#050914]">
-        <aside className="relative z-10 flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#f7f5ef] px-7 py-6 sm:px-10 sm:py-9 lg:min-h-screen lg:overflow-visible">
+    <>
+      <PasswordRecoveryScreen />
+      <main className="fixed inset-0 min-h-[100dvh] overflow-y-auto bg-[#f7f5ef] text-[#171b25] lg:relative lg:inset-auto lg:min-h-screen lg:bg-[#020617]">
+        <section className="relative grid min-h-[100dvh] w-full overflow-hidden bg-[#f7f5ef] lg:min-h-screen lg:grid-cols-[minmax(390px,31vw)_minmax(0,1fr)] lg:bg-[#050914]">
+          <aside className="relative z-10 flex min-h-[100dvh] flex-col overflow-visible bg-[#f7f5ef] px-7 py-6 sm:px-10 sm:py-9 lg:min-h-screen">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-[0_10px_28px_rgba(23,27,37,0.08)]">
               <OilDropIcon className="size-6 text-black" />
@@ -212,6 +224,13 @@ export function LandingPage({
               />
             </div>
 
+            <a
+              className="mt-4 self-center text-sm font-semibold text-[#555966] underline decoration-[#555966]/35 underline-offset-4 transition-colors hover:text-[#171b25] lg:mt-5"
+              href={recoveryHref}
+            >
+              ¿Olvidaste tu contraseña?
+            </a>
+
             <button
               className="mt-7 flex h-12 cursor-pointer items-center justify-center rounded-full bg-[#171b25] px-5 text-sm font-black uppercase tracking-[0.1em] text-white shadow-[0_18px_34px_rgba(23,27,37,0.22)] transition-transform hover:-translate-y-0.5 lg:mt-8"
               type="submit"
@@ -219,20 +238,21 @@ export function LandingPage({
               Login
             </button>
           </form>
-        </aside>
+          </aside>
 
-        <section className="relative hidden min-h-screen items-center overflow-hidden px-8 py-10 text-white sm:px-12 lg:flex lg:px-16 xl:px-20">
-          <AbstractField />
+          <section className="relative hidden min-h-screen items-center overflow-hidden px-8 py-10 text-white sm:px-12 lg:flex lg:px-16 xl:px-20">
+            <AbstractField />
 
-          <div className="relative z-10 w-full max-w-[720px] lg:-translate-y-12">
-            <LiveOilQuoteCard />
+            <div className="relative z-10 w-full max-w-[720px] lg:-translate-y-12">
+              <LiveOilQuoteCard />
 
-            <p className="mt-9 text-[4.2rem] font-black leading-[0.88] tracking-normal text-white sm:text-[5.6rem] lg:text-[6.2rem] xl:text-[6.7rem]">
-              Welcome.
-            </p>
-          </div>
+              <p className="mt-9 text-[4.2rem] font-black leading-[0.88] tracking-normal text-white sm:text-[5.6rem] lg:text-[6.2rem] xl:text-[6.7rem]">
+                Welcome.
+              </p>
+            </div>
+          </section>
         </section>
-      </section>
-    </main>
+      </main>
+    </>
   );
 }
