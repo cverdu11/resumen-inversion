@@ -57,18 +57,25 @@ function generateTemporaryPassword(length = 14) {
   );
 }
 
-function getSiteUrl() {
+export function getSiteUrl() {
   const rawUrl =
     process.env.NEXT_PUBLIC_SITE_URL ??
     process.env.SITE_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL ??
     process.env.VERCEL_URL ??
     "https://resumen-inversion.vercel.app";
+  const normalizedUrl = rawUrl.trim().replace(/\/+$/, "");
 
-  return rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+  if (normalizedUrl.includes("localhost")) {
+    return "https://resumen-inversion.vercel.app";
+  }
+
+  return normalizedUrl.startsWith("http")
+    ? normalizedUrl
+    : `https://${normalizedUrl}`;
 }
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
