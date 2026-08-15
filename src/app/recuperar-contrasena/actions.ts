@@ -38,6 +38,7 @@ async function sendRecoveryEmail(email: string, recoveryUrl: string) {
     "";
 
   if (!apiKey || !from) {
+    console.error("[password-recovery] Resend configuration is missing.");
     return false;
   }
 
@@ -76,6 +77,12 @@ async function sendRecoveryEmail(email: string, recoveryUrl: string) {
     }),
   });
 
+  if (!response.ok) {
+    console.error(
+      `[password-recovery] Resend returned HTTP ${response.status}.`,
+    );
+  }
+
   return response.ok;
 }
 
@@ -89,6 +96,7 @@ export async function requestPasswordRecovery(
   }
 
   if (!hasSupabaseAdminEnv()) {
+    console.error("[password-recovery] Supabase admin configuration is missing.");
     return { error: "unavailable", ok: false };
   }
 
@@ -102,6 +110,9 @@ export async function requestPasswordRecovery(
       .maybeSingle();
 
     if (investorError) {
+      console.error(
+        `[password-recovery] Investor lookup failed: ${investorError.message}`,
+      );
       return { error: "unavailable", ok: false };
     }
 
@@ -120,6 +131,9 @@ export async function requestPasswordRecovery(
     });
 
     if (error || !data.properties.hashed_token) {
+      console.error(
+        `[password-recovery] Recovery link generation failed: ${error?.message ?? "missing token"}`,
+      );
       return { ok: true };
     }
 
@@ -132,6 +146,7 @@ export async function requestPasswordRecovery(
       ? { ok: true }
       : { error: "unavailable", ok: false };
   } catch {
+    console.error("[password-recovery] Unexpected recovery request failure.");
     return { error: "unavailable", ok: false };
   }
 }
