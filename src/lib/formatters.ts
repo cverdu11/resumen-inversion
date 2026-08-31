@@ -88,6 +88,10 @@ const shortDateFormatter = new Intl.DateTimeFormat("es-ES", {
   month: "short",
 });
 
+export function normalizeSpanishShortMonth(value: string) {
+  return value.replace(/\bsept\.?/gi, "sep");
+}
+
 function withoutRoundedZeroSign(value: number, fractionDigits: number) {
   const zeroThreshold = 0.5 / 10 ** fractionDigits;
 
@@ -149,9 +153,9 @@ export function formatAxisMonth(date: string) {
 }
 
 export function formatCompactSpanishMonth(date: string) {
-  const formatted = compactSpanishMonthFormatter
-    .format(parseDate(date))
-    .replace(".", "");
+  const formatted = normalizeSpanishShortMonth(
+    compactSpanishMonthFormatter.format(parseDate(date)).replace(".", ""),
+  );
 
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
@@ -161,7 +165,9 @@ export function formatFullDate(date: string) {
 }
 
 export function formatShortDate(date: string) {
-  const formatted = shortDateFormatter.format(parseDate(date)).replace(".", "");
+  const formatted = normalizeSpanishShortMonth(
+    shortDateFormatter.format(parseDate(date)).replace(".", ""),
+  );
 
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }

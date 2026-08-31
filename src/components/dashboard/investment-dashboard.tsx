@@ -56,6 +56,7 @@ import {
   formatShortDate,
   formatWholeCurrency,
   formatWholePercent,
+  normalizeSpanishShortMonth,
 } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
@@ -292,10 +293,9 @@ function formatMobileWeekRange(startDate: string, endDate: string) {
   if (startMonth === endMonth) {
     const startDay = mobileWeekDayFormatter.format(start);
     const endDay = mobileWeekDayFormatter.format(end);
-    const month = mobileWeekMonthFormatter
-      .format(end)
-      .replace(".", "")
-      .toLowerCase();
+    const month = normalizeSpanishShortMonth(
+      mobileWeekMonthFormatter.format(end).replace(".", ""),
+    ).toLowerCase();
 
     return `${startDay}-${endDay} ${month}`;
   }

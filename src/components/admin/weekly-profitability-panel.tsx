@@ -34,6 +34,7 @@ import type { MockInvestor } from "@/lib/admin-mock-data";
 import {
   formatCurrency,
   formatPercent,
+  normalizeSpanishShortMonth,
   valueTone,
 } from "@/lib/formatters";
 import {
@@ -148,9 +149,9 @@ const firstMonthlyOverviewSortDirection: Record<
 };
 
 function formatPeriodDate(date: string) {
-  const formatted = periodDateFormatter
-    .format(new Date(`${date}T12:00:00`))
-    .replace(".", "");
+  const formatted = normalizeSpanishShortMonth(
+    periodDateFormatter.format(new Date(`${date}T12:00:00`)).replace(".", ""),
+  );
 
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
