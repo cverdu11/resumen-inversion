@@ -42,7 +42,10 @@ import {
   movementAffectsWeeklyReturn,
 } from "@/lib/investor-dashboard-data";
 import { cn } from "@/lib/utils";
-import type { WeeklyProfitabilityItem } from "@/lib/weekly-profitability";
+import {
+  getWeeklyProfitabilityMonthKey,
+  type WeeklyProfitabilityItem,
+} from "@/lib/weekly-profitability";
 
 const periodDateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
@@ -336,17 +339,29 @@ function buildMonthlyProfitabilityOverview(
   periodSort: PeriodSort,
 ): MonthlyProfitabilitySummary[] {
   const weeksByMonth = new Map<string, WeeklyProfitabilityItem[]>();
+  const calculationWeeksByMonth = new Map<string, WeeklyProfitabilityItem[]>();
+  const monthKeys = new Set<string>();
 
   for (const week of weeks) {
-    const monthKey = week.endDate.slice(0, 7);
-    const existingWeeks = weeksByMonth.get(monthKey) ?? [];
-    existingWeeks.push(week);
-    weeksByMonth.set(monthKey, existingWeeks);
+    const reportingMonth = getWeeklyProfitabilityMonthKey(
+      week.startDate,
+      week.endDate,
+    );
+    const calculationMonth = week.endDate.slice(0, 7);
+    const reportingWeeks = weeksByMonth.get(reportingMonth) ?? [];
+    const calculationWeeks = calculationWeeksByMonth.get(calculationMonth) ?? [];
+
+    reportingWeeks.push(week);
+    calculationWeeks.push(week);
+    weeksByMonth.set(reportingMonth, reportingWeeks);
+    calculationWeeksByMonth.set(calculationMonth, calculationWeeks);
+    monthKeys.add(reportingMonth);
+    monthKeys.add(calculationMonth);
   }
 
-  const chronologicalMonths = [...weeksByMonth.entries()].sort(
-    ([leftMonth], [rightMonth]) => leftMonth.localeCompare(rightMonth),
-  );
+  const chronologicalMonths = [...monthKeys]
+    .sort((leftMonth, rightMonth) => leftMonth.localeCompare(rightMonth))
+    .map((monthKey) => [monthKey, weeksByMonth.get(monthKey) ?? []] as const);
   const monthlyTotals = new Map(
     chronologicalMonths.map(([monthKey, monthWeeks]) => [
       monthKey,
@@ -369,13 +384,18 @@ function buildMonthlyProfitabilityOverview(
     });
     let balance = 0;
     let movementIndex = 0;
+    const monthReclassifications: Array<{
+      fromMonth: string;
+      gain: number;
+      toMonth: string;
+    }> = [];
 
-    for (const [monthKey, monthWeeks] of chronologicalMonths) {
+    for (const [monthKey] of chronologicalMonths) {
       const monthStart = `${monthKey}-01`;
       const nextMonthStart = getNextMonthStart(monthKey);
-      const chronologicalWeeks = [...monthWeeks].sort((left, right) =>
-        left.startDate.localeCompare(right.startDate),
-      );
+      const chronologicalWeeks = [
+        ...(calculationWeeksByMonth.get(monthKey) ?? []),
+      ].sort((left, right) => left.startDate.localeCompare(right.startDate));
       const savedMonthWeeks = chronologicalWeeks.filter((week) => week.isSaved);
 
       while (
@@ -401,7 +421,6 @@ function buildMonthlyProfitabilityOverview(
         (total, movement) => total + getMovementEffect(movement),
         0,
       );
-      let averageBaseTotal = 0;
       const result = savedMonthWeeks.reduce((total, week) => {
         const weeklyMovementEffect = monthMovements
           .filter((movement) =>
@@ -431,23 +450,51 @@ function buildMonthlyProfitabilityOverview(
               weekStart: week.startDate,
             })
           : week.returnPct;
+        const weeklyGain =
+          weeklyBase > 0 ? (weeklyBase * returnPct) / 100 : 0;
+        const reportingMonth = getWeeklyProfitabilityMonthKey(
+          week.startDate,
+          week.endDate,
+        );
+        const reportingTotals = monthlyTotals.get(reportingMonth);
 
-        averageBaseTotal += weeklyBase;
+        if (reportingTotals) {
+          reportingTotals.averageBaseTotal += weeklyBase;
+        }
 
-        return weeklyBase > 0
-          ? total + (weeklyBase * returnPct) / 100
-          : total;
+        if (reportingMonth !== monthKey) {
+          monthReclassifications.push({
+            fromMonth: monthKey,
+            gain: weeklyGain,
+            toMonth: reportingMonth,
+          });
+        }
+
+        return total + weeklyGain;
       }, 0);
       balance = initialValue + movementTotal + result;
       const totals = monthlyTotals.get(monthKey);
 
       if (totals) {
-        totals.averageBaseTotal += averageBaseTotal;
         totals.finalValue += balance;
         totals.initialValue += initialValue;
         totals.movementTotal += movementTotal;
         totals.result += result;
       }
+    }
+
+    for (const reclassification of monthReclassifications) {
+      const sourceTotals = monthlyTotals.get(reclassification.fromMonth);
+      const targetTotals = monthlyTotals.get(reclassification.toMonth);
+
+      if (!sourceTotals || !targetTotals) {
+        continue;
+      }
+
+      targetTotals.finalValue += reclassification.gain;
+      targetTotals.result += reclassification.gain;
+      sourceTotals.initialValue += reclassification.gain;
+      sourceTotals.result -= reclassification.gain;
     }
   }
 

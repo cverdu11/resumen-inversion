@@ -6,6 +6,7 @@ import {
   type MonthlyInvestmentItem,
   type WeeklyInvestmentItem,
 } from "@/lib/investment-data";
+import { getWeeklyProfitabilityMonthKey } from "@/lib/weekly-profitability";
 
 export type InvestorDashboardInvestorRow = {
   id: number;
@@ -308,7 +309,10 @@ function mapWeeklyData(
   return weeks.map((week) => ({
     endDate: week.week_end,
     id: `week-${week.id}`,
-    monthDate: `${getMonthKey(week.week_end)}-01`,
+    monthDate: `${getWeeklyProfitabilityMonthKey(
+      week.week_start,
+      week.week_end,
+    )}-01`,
     returnPct: Number(week.return_pct),
     startDate: week.week_start,
     week: getWeekLabel(week.week_end),
@@ -391,20 +395,29 @@ function buildMonthlyData(
 
   for (const week of orderedWeeks) {
     monthIds.add(getMonthKey(week.week_end));
+    monthIds.add(getWeeklyProfitabilityMonthKey(week.week_start, week.week_end));
   }
 
   for (const week of weeks) {
     if (week.week_end >= investor.start_date) {
-      monthIds.add(getMonthKey(week.week_end));
+      monthIds.add(
+        getWeeklyProfitabilityMonthKey(week.week_start, week.week_end),
+      );
     }
   }
 
   const monthKeys = [...monthIds].sort();
+  const monthReclassifications: Array<{
+    fromMonth: string;
+    gain: number;
+    returnPct: number;
+    toMonth: string;
+  }> = [];
   let balance = 0;
   let netCapital = 0;
   let movementIndex = 0;
 
-  return monthKeys.map((monthKey): MonthlyInvestmentItem => {
+  const monthlyData = monthKeys.map((monthKey): MonthlyInvestmentItem => {
     const monthStart = `${monthKey}-01`;
     const nextMonthStart = getNextMonthStart(monthKey);
     const monthWeeks = orderedWeeks.filter(
@@ -461,13 +474,27 @@ function buildMonthlyData(
 
       return initialValue + weeklyMovementEffect;
     });
-    const gain = monthWeeks.reduce((total, week, index) => {
+    const weeklyGains = monthWeeks.map((week, index) => {
       const weeklyBase = weeklyBases[index] ?? initialValue;
+      const returnPct = Number(week.return_pct);
+      const weeklyGain = weeklyBase > 0 ? (weeklyBase * returnPct) / 100 : 0;
+      const reportingMonth = getWeeklyProfitabilityMonthKey(
+        week.week_start,
+        week.week_end,
+      );
 
-      return weeklyBase > 0
-        ? total + (weeklyBase * Number(week.return_pct)) / 100
-        : total;
-    }, 0);
+      if (reportingMonth !== monthKey) {
+        monthReclassifications.push({
+          fromMonth: monthKey,
+          gain: weeklyGain,
+          returnPct,
+          toMonth: reportingMonth,
+        });
+      }
+
+      return weeklyGain;
+    });
+    const gain = weeklyGains.reduce((total, weeklyGain) => total + weeklyGain, 0);
     const returnPct = roundPercent(
       monthWeeks.reduce((total, week) => total + Number(week.return_pct), 0),
     );
@@ -489,6 +516,40 @@ function buildMonthlyData(
       withdrawals: roundCurrency(withdrawals),
     };
   });
+  const calculationMonthlyData = monthlyData.map((month) => ({ ...month }));
+
+  for (const reclassification of monthReclassifications) {
+    const sourceMonth = monthlyData.find(
+      (month) => getMonthKey(month.date) === reclassification.fromMonth,
+    );
+    const targetMonth = monthlyData.find(
+      (month) => getMonthKey(month.date) === reclassification.toMonth,
+    );
+
+    if (!sourceMonth || !targetMonth) {
+      continue;
+    }
+
+    targetMonth.gain = roundCurrency(targetMonth.gain + reclassification.gain);
+    targetMonth.finalValue = roundCurrency(
+      targetMonth.finalValue + reclassification.gain,
+    );
+    targetMonth.returnPct = roundPercent(
+      targetMonth.returnPct + reclassification.returnPct,
+    );
+    targetMonth.maxDrawdownPct = Math.min(0, targetMonth.returnPct);
+
+    sourceMonth.initialValue = roundCurrency(
+      sourceMonth.initialValue + reclassification.gain,
+    );
+    sourceMonth.gain = roundCurrency(sourceMonth.gain - reclassification.gain);
+    sourceMonth.returnPct = roundPercent(
+      sourceMonth.returnPct - reclassification.returnPct,
+    );
+    sourceMonth.maxDrawdownPct = Math.min(0, sourceMonth.returnPct);
+  }
+
+  return { calculationMonthlyData, monthlyData };
 }
 
 export function buildInvestorDashboardData({
@@ -538,7 +599,11 @@ export function buildInvestorDashboardData({
   );
 
   const capitalMovements = mapCapitalMovements(movements);
-  const monthlyData = buildMonthlyData(investor, movements, visibleWeeks);
+  const { calculationMonthlyData, monthlyData } = buildMonthlyData(
+    investor,
+    movements,
+    visibleWeeks,
+  );
   const weeklyData = mapWeeklyData(visibleWeeks);
   const annualizedEndDate = getAnnualizedEndDate({
     investor,
@@ -549,17 +614,31 @@ export function buildInvestorDashboardData({
     investor.start_date,
     annualizedEndDate,
   );
+  const reportingSummary = deriveInvestmentSummary(
+    monthlyData,
+    capitalMovements,
+    0,
+    annualizedBasisYears,
+  );
+  const calculationSummary = deriveInvestmentSummary(
+    calculationMonthlyData,
+    capitalMovements,
+    0,
+    annualizedBasisYears,
+  );
 
   return {
     capitalMovements,
     dataUpdatedAt: getDashboardUpdatedAt(movements, visibleWeeks),
     monthlyData,
-    summary: deriveInvestmentSummary(
-      monthlyData,
-      capitalMovements,
-      0,
-      annualizedBasisYears,
-    ),
+    summary: {
+      ...reportingSummary,
+      annualizedReturnPct: calculationSummary.annualizedReturnPct,
+      currentValue: calculationSummary.currentValue,
+      lastTwelveMonthsReturnPct: calculationSummary.lastTwelveMonthsReturnPct,
+      totalProfit: calculationSummary.totalProfit,
+      totalReturnPct: calculationSummary.totalReturnPct,
+    },
     weeklyData,
   };
 }

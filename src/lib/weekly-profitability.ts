@@ -25,6 +25,12 @@ export type WeeklyProfitabilityItem = {
 const weekRangeBeforeCurrent = 7;
 const weekRangeAfterCurrent = 1;
 
+// Business exception: the trader books ISO week 40 of 2026 in September,
+// even though the trading week closes on 2 October.
+const weeklyProfitabilityMonthExceptions = new Map([
+  ["2026-09-28:2026-10-02", "2026-09"],
+]);
+
 const monthFormatter = new Intl.DateTimeFormat("es-ES", {
   month: "long",
   year: "numeric",
@@ -36,6 +42,16 @@ function toDateInputValue(date: Date) {
 
 function parseLocalDate(date: string) {
   return new Date(`${date}T12:00:00`);
+}
+
+export function getWeeklyProfitabilityMonthKey(
+  weekStart: string,
+  weekEnd: string,
+) {
+  return (
+    weeklyProfitabilityMonthExceptions.get(`${weekStart}:${weekEnd}`) ??
+    weekEnd.slice(0, 7)
+  );
 }
 
 function addDays(date: Date, days: number) {
